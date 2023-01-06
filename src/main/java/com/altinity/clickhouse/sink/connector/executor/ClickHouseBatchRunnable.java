@@ -75,7 +75,7 @@ public class ClickHouseBatchRunnable implements Runnable {
     private DBCredentials parseDBConfiguration() {
         DBCredentials dbCredentials = new DBCredentials();
 
-        dbCredentials.setHostName(config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_URL));
+        dbCredentials.setHostNames(config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_URLS));
         dbCredentials.setDatabase(config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_DATABASE));
         dbCredentials.setPort(config.getInt(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_PORT));
         dbCredentials.setUserName(config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_USER));
@@ -146,7 +146,7 @@ public class ClickHouseBatchRunnable implements Runnable {
 //        if (this.topicToDbWriterMap.containsKey(topicName)) {
 //            writer = this.topicToDbWriterMap.get(topicName);
 //        } else {
-            writer = new DbWriter(this.dbCredentials.getHostName(), this.dbCredentials.getPort(),
+            writer = new DbWriter(this.dbCredentials.getHostNames(), this.dbCredentials.getPort(),
                     this.dbCredentials.getDatabase(), tableName, this.dbCredentials.getUserName(),
                     this.dbCredentials.getPassword(), this.config, record);
             this.topicToDbWriterMap.put(topicName, writer);
@@ -204,7 +204,7 @@ public class ClickHouseBatchRunnable implements Runnable {
 
         if (this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.ENABLE_KAFKA_OFFSET)) {
             log.info("***** KAFKA OFFSET MANAGEMENT ENABLED *****");
-            DbKafkaOffsetWriter dbKafkaOffsetWriter = new DbKafkaOffsetWriter(dbCredentials.getHostName(), dbCredentials.getPort(), dbCredentials.getDatabase(),
+            DbKafkaOffsetWriter dbKafkaOffsetWriter = new DbKafkaOffsetWriter(dbCredentials.getHostNames(), dbCredentials.getPort(), dbCredentials.getDatabase(),
                     "topic_offset_metadata", dbCredentials.getUserName(), dbCredentials.getPassword(), this.config);
             try {
                 dbKafkaOffsetWriter.insertTopicOffsetMetadata(partitionToOffsetMap);

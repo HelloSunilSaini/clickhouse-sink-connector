@@ -23,12 +23,15 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
 
     private static final Logger log = LoggerFactory.getLogger(ClickHouseAutoCreateTable.class.getName());
 
-    public void createNewTable(ArrayList<String> primaryKey, String tableName, Field[] fields, ClickHouseConnection connection) throws SQLException {
+    public void createNewTable(ArrayList<String> primaryKey, String tableName, Field[] fields, ArrayList<ClickHouseConnection> connections) throws SQLException {
         Map<String, String> colNameToDataTypeMap = this.getColumnNameToCHDataTypeMapping(fields);
         String createTableQuery = this.createTableSyntax(primaryKey, tableName, fields, colNameToDataTypeMap);
-        log.info("**** AUTO CREATE TABLE " + createTableQuery);
         // ToDO: need to run it before a session is created.
-        this.runQuery(createTableQuery, connection);
+        for (int i=0;i<connections.size();i++){
+            String createTableQueryFinal = createTableQuery.replace("{replica}", "" + i);
+            log.info("**** AUTO CREATE TABLE " + createTableQueryFinal);
+            this.runQuery(createTableQueryFinal, connections.get(i));
+        }
     }
 
     /**
@@ -78,7 +81,7 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
 
         createTableSyntax.append(")");
         createTableSyntax.append(" ");
-        createTableSyntax.append("ENGINE = ReplacingMergeTree(").append(VERSION_COLUMN).append(")");
+        createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(")");
         createTableSyntax.append(" ");
 
         if(primaryKey != null) {

@@ -69,10 +69,10 @@ public class DBMetadataTest {
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
 
         // Default database exists.
-        boolean result = new DBMetadata().checkIfDatabaseExists(writer.getConnection(), "default");
+        boolean result = new DBMetadata().checkIfDatabaseExists(writer.getConnection().get(0), "default");
         Assert.assertTrue(result);
 
-        boolean result2 = new DBMetadata().checkIfDatabaseExists(writer.getConnection(), "newdb");
+        boolean result2 = new DBMetadata().checkIfDatabaseExists(writer.getConnection().get(0), "newdb");
         Assert.assertFalse(result2);
 
     }

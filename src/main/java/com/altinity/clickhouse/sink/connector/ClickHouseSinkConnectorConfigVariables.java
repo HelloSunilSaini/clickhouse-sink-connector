@@ -10,7 +10,7 @@ public class ClickHouseSinkConnectorConfigVariables {
 
     public static final String CLICKHOUSE_TOPICS_TABLES_MAP = "clickhouse.topic2table.map";
 
-    public static final String CLICKHOUSE_URL = "clickhouse.server.url";
+    public static final String CLICKHOUSE_URLS = "clickhouse.server.urls";
     public static final String CLICKHOUSE_USER = "clickhouse.server.user";
     public static final String CLICKHOUSE_PASS = "clickhouse.server.pass";
     public static final String CLICKHOUSE_DATABASE = "clickhouse.server.database";

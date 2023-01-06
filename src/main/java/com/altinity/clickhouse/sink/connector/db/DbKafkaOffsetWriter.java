@@ -44,7 +44,7 @@ public class DbKafkaOffsetWriter extends BaseDbWriter {
      */
     public void createOffsetTable() {
         try {
-            PreparedStatement ps = this.getConnection().prepareStatement(ClickHouseDbConstants.OFFSET_TABLE_CREATE_SQL);
+            PreparedStatement ps = this.getConnection().get(0).prepareStatement(ClickHouseDbConstants.OFFSET_TABLE_CREATE_SQL);
             ps.execute();
         } catch(SQLException se) {
             log.error("Error creating Kafka offset table");
@@ -58,7 +58,7 @@ public class DbKafkaOffsetWriter extends BaseDbWriter {
      */
     public void insertTopicOffsetMetadata(Map<TopicPartition, Long> topicPartitionToOffsetMap) throws SQLException {
 
-        try (PreparedStatement ps = this.getConnection().prepareStatement(this.query)) {
+        try (PreparedStatement ps = this.getConnection().get(0).prepareStatement(this.query)) {
 
 
             for (Map.Entry<TopicPartition, Long> entry : topicPartitionToOffsetMap.entrySet()) {
@@ -98,7 +98,7 @@ public class DbKafkaOffsetWriter extends BaseDbWriter {
     public Map<TopicPartition, Long> getStoredOffsets() throws SQLException {
         Map<TopicPartition, Long> result = new HashMap<>();
 
-        Statement stmt = this.getConnection().createStatement();
+        Statement stmt = this.getConnection().get(0).createStatement();
         ResultSet rs = stmt.executeQuery("select * from topic_offset_metadata");
 
         while (rs.next()) {

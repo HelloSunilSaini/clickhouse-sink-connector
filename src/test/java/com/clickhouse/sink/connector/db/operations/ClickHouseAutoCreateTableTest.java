@@ -54,7 +54,7 @@ public class ClickHouseAutoCreateTableTest {
         ClickHouseSinkConnectorConfig config= new ClickHouseSinkConnectorConfig(new HashMap<>());
         DbWriter writer = new DbWriter(hostName, port, database, tableName, userName, password, config, null);
 
-        conn = writer.getConnection();
+        conn = writer.getConnection().get(0);
 
     }
 

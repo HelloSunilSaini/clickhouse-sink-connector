@@ -10,29 +10,34 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Properties;
 
 public class BaseDbWriter {
 
-    protected ClickHouseConnection conn;
+    // protected ClickHouseConnection conn;
+    protected ArrayList<ClickHouseConnection> connections = new ArrayList<ClickHouseConnection>();
 
     private static final Logger log = LoggerFactory.getLogger(BaseDbWriter.class);
 
     public BaseDbWriter(
-            String hostName,
+            String hostNames,
             Integer port,
             String database,
             String userName,
             String password,
             ClickHouseSinkConnectorConfig config
     ) {
-
-        String connectionUrl = getConnectionString(hostName, port, database);
-        this.createConnection(connectionUrl, "Agent_1", userName, password);
+        // split hostname with commas
+        String[] hostNameStrings = hostNames.split(",",0);
+        for (int i=0; i<hostNameStrings.length; i++){
+            String connectionUrl = getConnectionString((String)hostNameStrings[i], port, database);
+            this.createConnection(connectionUrl, "Agent_" + i, userName, password);
+        }
     }
 
-    public ClickHouseConnection getConnection() {
-        return this.conn;
+    public ArrayList<ClickHouseConnection> getConnection() {
+        return this.connections;
     }
     public String getConnectionString(String hostName, Integer port, String database) {
         return String.format("jdbc:clickhouse://%s:%s/%s", hostName, port, database);
@@ -52,8 +57,8 @@ public class BaseDbWriter {
             properties.setProperty("client_name", clientName);
             properties.setProperty("custom_settings", "allow_experimental_object_type=1");
             ClickHouseDataSource dataSource = new ClickHouseDataSource(url, properties);
-
-            this.conn = dataSource.getConnection(userName, password);
+            ClickHouseConnection conn = dataSource.getConnection(userName, password);
+            this.connections.add(conn);
         } catch (Exception e) {
             log.error("Error creating ClickHouse connection" + e);
         }
@@ -67,12 +72,12 @@ public class BaseDbWriter {
 
         LinkedHashMap<String, String> result = new LinkedHashMap<>();
         try {
-            if (this.conn == null) {
+            if (this.connections.size() == 0) {
                 log.error("Error with DB connection");
                 return result;
             }
             // TODO : add check for DB name 
-            ResultSet columns = this.conn.getMetaData().getColumns(null, null,
+            ResultSet columns = this.connections.get(0).getMetaData().getColumns(null, null,
                     tableName, null);
             while (columns.next()) {
                 String columnName = columns.getString("COLUMN_NAME");

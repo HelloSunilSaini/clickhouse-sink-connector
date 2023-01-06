@@ -7,7 +7,7 @@ public class DBCredentials {
 
     @Getter
     @Setter
-    private String hostName;
+    private String hostNames;
 
     @Getter
     @Setter

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 import static com.altinity.clickhouse.sink.connector.db.ClickHouseDbConstants.CHECK_DB_EXISTS_SQL;
 
@@ -44,15 +45,20 @@ public class DBMetadata {
      * @param tableName
      * @return
      */
-    public MutablePair<TABLE_ENGINE, String> getTableEngine(ClickHouseConnection conn, String databaseName, String tableName) {
+    public MutablePair<TABLE_ENGINE, String> getTableEngine(ArrayList<ClickHouseConnection> connections, String databaseName, String tableName) {
 
         MutablePair<TABLE_ENGINE, String> result;
-        result = getTableEngineUsingSystemTables(conn, databaseName, tableName);
-
-        if(result.left == null) {
-            result = getTableEngineUsingShowTable(conn, tableName);
-        }
-
+        int i = 0;
+        do{
+            result = getTableEngineUsingSystemTables(connections.get(i), databaseName, tableName);
+            if(result.left == null) {
+                result = getTableEngineUsingShowTable(connections.get(i), tableName);
+            }
+            if (result.left != null){
+                break;
+            }
+            i++;
+        }while(i<connections.size());
         return result;
     }
 

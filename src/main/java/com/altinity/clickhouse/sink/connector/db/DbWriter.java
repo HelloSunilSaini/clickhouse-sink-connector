@@ -71,16 +71,16 @@ public class DbWriter extends BaseDbWriter {
         this.config = config;
 
         try {
-            if (this.conn != null) {
+            if (this.connections.size() != 0) {
                 // Order of the column names and the data type has to match.
                 this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
             }
 
             DBMetadata metadata = new DBMetadata();
-            if(false == metadata.checkIfDatabaseExists(this.conn, database)) {
-                new ClickHouseCreateDatabase().createNewDatabase(this.conn, database);
-            }
-            MutablePair<DBMetadata.TABLE_ENGINE, String> response = metadata.getTableEngine(this.conn, database, tableName);
+            // if(false == metadata.checkIfDatabaseExists(this.conn, database)) {
+            //     new ClickHouseCreateDatabase().createNewDatabase(this.conn, database);
+            // }
+            MutablePair<DBMetadata.TABLE_ENGINE, String> response = metadata.getTableEngine(this.connections, database, tableName);
             this.engine = response.getLeft();
 
             long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID);
@@ -91,9 +91,9 @@ public class DbWriter extends BaseDbWriter {
                     log.info(String.format("**** Task(%s), AUTO CREATE TABLE (%s) *** ",taskId, tableName));
                     ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
                     try {
-                        act.createNewTable(record.getPrimaryKey(), tableName, record.getAfterStruct().schema().fields().toArray(new Field[0]), this.conn);
+                        act.createNewTable(record.getPrimaryKey(), tableName, record.getAfterStruct().schema().fields().toArray(new Field[0]), this.connections);
                         this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
-                        response = metadata.getTableEngine(this.conn, database, tableName);
+                        response = metadata.getTableEngine(this.connections, database, tableName);
                         this.engine = response.getLeft();
                     } catch (Exception e) {
                         log.error("**** Error creating table ***" + tableName, e);
@@ -103,7 +103,7 @@ public class DbWriter extends BaseDbWriter {
                 }
             }
 
-            if (this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine())) {
+            if (this.engine != null && (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine()) || this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine()))) {
                 this.versionColumn = response.getRight();
             } else if (this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
                 this.signColumn = response.getRight();
@@ -354,7 +354,11 @@ public class DbWriter extends BaseDbWriter {
                 log.info(" ***** ALTER TABLE QUERY **** " + alterTableQuery);
 
                 try {
-                    cat.runQuery(alterTableQuery, this.getConnection());
+                    // run alter query on every replica connection
+                    connections = this.getConnection();
+                    for(int i= 0; i< connections.size();i++){
+                        cat.runQuery(alterTableQuery, connections.get(i));
+                    }
                     this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
                 } catch(Exception e) {
                     log.error(" **** ALTER TABLE EXCEPTION ", e);
@@ -412,77 +416,85 @@ public class DbWriter extends BaseDbWriter {
             // because the data will contain a mix of SQL statements(multiple columns)
 
             ArrayList<ClickHouseStruct> truncatedRecords = new ArrayList<>();
-            try (PreparedStatement ps = this.conn.prepareStatement(insertQuery)) {
 
-                List<ClickHouseStruct> recordsList = entry.getValue();
-                for (ClickHouseStruct record : recordsList) {
-                    try {
-                        bmd.update(record);
-                    } catch(Exception e) {
-                        log.error("**** ERROR: updating Prometheus", e);
-                    }
+            for (int i=0; i<this.connections.size(); i++){
+                try (PreparedStatement ps = this.connections.get(i).prepareStatement(insertQuery)) {
 
-                    if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
-                        truncatedRecords.add(record);
-                        continue;
-                    }
-                    //List<Field> fields = record.getStruct().schema().fields();
-
-//                    if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
-//                        ps.addBatch(String.format("TRUNCATE TABLE %s", this.tableName));
-//                        continue;
-//                    }
-                    //ToDO:
-                    //insertPreparedStatement(ps, fields, record);
-
-
-                    if(CdcRecordState.CDC_RECORD_STATE_BEFORE == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
-                        insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
-                    } else if(CdcRecordState.CDC_RECORD_STATE_AFTER == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
-                        insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
-                    } else if(CdcRecordState.CDC_RECORD_STATE_BOTH == getCdcSectionBasedOnOperation(record.getCdcOperation()))  {
-                        if(this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
-                            insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
+                    List<ClickHouseStruct> recordsList = entry.getValue();
+                    for (ClickHouseStruct record : recordsList) {
+                        try {
+                            bmd.update(record);
+                        } catch(Exception e) {
+                            log.error("**** ERROR: updating Prometheus", e);
                         }
-                        insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
-                    } else {
-                        log.error("INVALID CDC RECORD STATE");
+
+                        if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
+                            truncatedRecords.add(record);
+                            continue;
+                        }
+                        //List<Field> fields = record.getStruct().schema().fields();
+
+    //                    if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
+    //                        ps.addBatch(String.format("TRUNCATE TABLE %s", this.tableName));
+    //                        continue;
+    //                    }
+                        //ToDO:
+                        //insertPreparedStatement(ps, fields, record);
+
+
+                        if(CdcRecordState.CDC_RECORD_STATE_BEFORE == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
+                            insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
+                        } else if(CdcRecordState.CDC_RECORD_STATE_AFTER == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
+                            insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
+                        } else if(CdcRecordState.CDC_RECORD_STATE_BOTH == getCdcSectionBasedOnOperation(record.getCdcOperation()))  {
+                            if(this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
+                                insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
+                            }
+                            insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
+                        } else {
+                            log.error("INVALID CDC RECORD STATE");
+                        }
+
+
+                        // Append parameters to the query
+
+
+                        ps.addBatch();
+                        //records.remove(record);
                     }
 
 
-                    // Append parameters to the query
+                    // Issue the composed query: insert into mytable values(...)(...)...(...)
+                    // ToDo: The result of greater than or equal to zero means
+                    // the records were processed successfully.
+                    // but if any of the records were not processed successfully
+                    // How to we rollback or what action needs to be taken.
+                    int[] result = ps.executeBatch();
+                    success = true;
 
+                    long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID);
+                    log.info("*************** EXECUTED BATCH Successfully " + "Records: " + recordsList.size() + "************** task(" + taskId + ")"  + " Thread ID: " + Thread.currentThread().getName());
+                    break;
+                    // ToDo: Clear is not an atomic operation.
+                    //  It might delete the records that are inserted by the ingestion process.
 
-                    ps.addBatch();
-                    //records.remove(record);
+                } catch (Exception e) {
+                    Metrics.updateErrorCounters(topicName, entry.getValue().size());
+                    log.error("******* ERROR inserting Batch for connection " + i + " ***************** ", e);
+                    success = false;
                 }
-
-
-                // Issue the composed query: insert into mytable values(...)(...)...(...)
-                // ToDo: The result of greater than or equal to zero means
-                // the records were processed successfully.
-                // but if any of the records were not processed successfully
-                // How to we rollback or what action needs to be taken.
-                int[] result = ps.executeBatch();
-                success = true;
-
-                long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID);
-                log.info("*************** EXECUTED BATCH Successfully " + "Records: " + recordsList.size() + "************** task(" + taskId + ")"  + " Thread ID: " + Thread.currentThread().getName());
-
-                // ToDo: Clear is not an atomic operation.
-                //  It might delete the records that are inserted by the ingestion process.
-
-            } catch (Exception e) {
-                Metrics.updateErrorCounters(topicName, entry.getValue().size());
-                log.error("******* ERROR inserting Batch *****************", e);
-                success = false;
             }
 
             if(!truncatedRecords.isEmpty()) {
-
-                PreparedStatement ps = this.conn.prepareStatement("TRUNCATE TABLE " + this.tableName);
-                ps.execute();
-
+                for (int i = 0; i<this.connections.size(); i++){
+                    try(PreparedStatement ps = this.connections.get(i).prepareStatement("TRUNCATE TABLE " + this.tableName)){
+                        ps.execute();
+                        break;
+                    }
+                    catch (Exception e) {
+                        log.error("******* ERROR TRUNCATE TABLE for connection " + i + " ***************** ", e);
+                    }
+                }
                 //this.conn.commit();
             }
 
@@ -627,7 +639,7 @@ public class DbWriter extends BaseDbWriter {
 
         // Version column.
         //String versionColumn = this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_VERSION_COLUMN);
-        if(this.engine != null && this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine() && this.versionColumn != null) {
+        if(this.engine != null && (this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine() || this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine()) && this.versionColumn != null) {
             if (this.columnNameToDataTypeMap.containsKey(versionColumn)) {
                 long currentTimeInMs = System.currentTimeMillis();
                 //if (record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.UPDATE.getOperation()))

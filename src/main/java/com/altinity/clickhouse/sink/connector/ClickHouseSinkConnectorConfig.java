@@ -146,7 +146,7 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
 
                 // Config Group "ClickHouse login info"
                 .define(
-                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_URL,
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_URLS,
                         Type.STRING,
                         "localhost",
                         new ConfigDef.NonEmptyString(),
@@ -155,7 +155,7 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
                         CONFIG_GROUP_CLICKHOUSE_LOGIN_INFO,
                         0,
                         ConfigDef.Width.NONE,
-                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_URL)
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_URLS)
                 .define(
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_USER,
                         Type.STRING,

@@ -34,5 +34,5 @@ COPY ./.extra_plugins/apicurio-registry-distro-connect-converter-2.3.1.Final/* /
 #RUN 'curl' '-L' '--output' '/libs/kafka-serde-tools-package-7.2.1.jar' 'https://packages.confluent.io/maven/io/confluent/kafka-serde-tools-package/7.2.1/kafka-serde-tools-package-7.2.1.jar'
 # COPY ./.extra_plugins/confluentinc-kafka-connect-avro-converter-7.2.2/lib/* /opt/kafka/plugins/clickhouse-sink-connector/3542976d/
 # COPY ./.extra_plugins/confluentinc-kafka-connect-json-schema-converter-7.3.0/lib/* /opt/kafka/plugins/clickhouse-sink-connector/3542976d/
-
+# COPY ./.extra_plugins/confluentinc-kafka-connect-protobuf-converter-7.3.1/lib/* /opt/kafka/plugins/clickhouse-sink-connector/3542976d/
 USER 1001
