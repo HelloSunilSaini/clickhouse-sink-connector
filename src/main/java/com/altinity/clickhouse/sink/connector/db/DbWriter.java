@@ -77,9 +77,11 @@ public class DbWriter extends BaseDbWriter {
             }
 
             DBMetadata metadata = new DBMetadata();
-            // if(false == metadata.checkIfDatabaseExists(this.conn, database)) {
-            //     new ClickHouseCreateDatabase().createNewDatabase(this.conn, database);
-            // }
+            for (int i = 0; i < this.connections.size(); i++){
+                if(false == metadata.checkIfDatabaseExists(this.connections.get(i), database)) {
+                    new ClickHouseCreateDatabase().createNewDatabase(this.connections.get(i), database);
+                }
+            }
             MutablePair<DBMetadata.TABLE_ENGINE, String> response = metadata.getTableEngine(this.connections, database, tableName);
             this.engine = response.getLeft();
 

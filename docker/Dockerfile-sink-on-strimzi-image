@@ -1,4 +1,4 @@
-FROM quay.io/strimzi/kafka:0.28.0-kafka-3.1.0
+FROM quay.io/strimzi/kafka:0.31.1-kafka-3.2.3
 
 LABEL maintainer="Altinity"
 
@@ -36,3 +36,5 @@ COPY ./.extra_plugins/apicurio-registry-distro-connect-converter-2.3.1.Final/* /
 # COPY ./.extra_plugins/confluentinc-kafka-connect-json-schema-converter-7.3.0/lib/* /opt/kafka/plugins/clickhouse-sink-connector/3542976d/
 # COPY ./.extra_plugins/confluentinc-kafka-connect-protobuf-converter-7.3.1/lib/* /opt/kafka/plugins/clickhouse-sink-connector/3542976d/
 USER 1001
+
+# aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 448903783933.dkr.ecr.ap-south-1.amazonaws.com
