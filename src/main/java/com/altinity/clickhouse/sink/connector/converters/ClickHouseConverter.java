@@ -3,6 +3,8 @@ package com.altinity.clickhouse.sink.connector.converters;
 import com.altinity.clickhouse.sink.connector.metadata.KafkaSchemaRecordType;
 import com.altinity.clickhouse.sink.connector.model.ClickHouseStruct;
 import com.altinity.clickhouse.sink.connector.model.SinkRecordColumns;
+import com.google.common.collect.MapMaker;
+
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -181,7 +183,7 @@ public class ClickHouseConverter implements AbstractConverter {
      */
 
     public CDC_OPERATION getOperation(final SinkRecord record) {
-        CDC_OPERATION cdcOperation = null;
+        CDC_OPERATION cdcOperation = CDC_OPERATION.CREATE;
         log.debug("convert()");
 
         Map<String, Object> convertedValue = convertValue(record);
@@ -233,28 +235,11 @@ public class ClickHouseConverter implements AbstractConverter {
             log.debug("Error converting Kafka Sink Record");
             return chStruct;
         }
-        // Check "operation" represented by this record.
-        if (convertedValue.containsKey(SinkRecordColumns.OPERATION)) {
-            // Operation (u, c)
-            String operation = (String) convertedValue.get(SinkRecordColumns.OPERATION);
-            if (operation.equalsIgnoreCase(CDC_OPERATION.CREATE.operation) ||
-                    operation.equalsIgnoreCase(CDC_OPERATION.READ.operation)) {
-                // Inserts.
-                log.debug("CREATE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.AFTER, CDC_OPERATION.CREATE);
-            } else if (operation.equalsIgnoreCase(CDC_OPERATION.UPDATE.operation)) {
-                // Updates.
-                log.debug("UPDATE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.AFTER, CDC_OPERATION.UPDATE);
-            } else if (operation.equalsIgnoreCase(CDC_OPERATION.DELETE.operation)) {
-                // Deletes.
-                log.debug("DELETE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.BEFORE, CDC_OPERATION.DELETE);
-            } else if(operation.equalsIgnoreCase(CDC_OPERATION.TRUNCATE.operation)) {
-                log.debug("TRUNCATE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.BEFORE, CDC_OPERATION.TRUNCATE);
-            }
-        }
+        Map<String, Object> convertedValueModified = new HashMap<>();
+        convertedValueModified.put(SinkRecordColumns.AFTER, convertedValue);
+        convertedValueModified.put(SinkRecordColumns.BEFORE, convertedValue);
+
+        chStruct = readBeforeOrAfterSection(convertedValueModified, record, SinkRecordColumns.AFTER, CDC_OPERATION.CREATE);
 
         return chStruct;
     }
