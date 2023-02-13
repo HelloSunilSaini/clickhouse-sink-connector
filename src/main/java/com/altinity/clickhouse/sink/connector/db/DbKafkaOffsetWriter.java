@@ -28,10 +28,11 @@ public class DbKafkaOffsetWriter extends BaseDbWriter {
             String tableName,
             String userName,
             String password,
+            Boolean enableSsl,
             ClickHouseSinkConnectorConfig config
     ) {
 
-        super(hostName, port, database, userName, password, config);
+        super(hostName, port, database, userName, password, enableSsl,config);
 
         createOffsetTable();
         this.columnNamesToDataTypesMap = this.getColumnsDataTypesForTable(tableName);

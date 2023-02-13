@@ -3,6 +3,8 @@ package com.altinity.clickhouse.sink.connector.db;
 import com.altinity.clickhouse.sink.connector.ClickHouseSinkConnectorConfig;
 import com.clickhouse.jdbc.ClickHouseConnection;
 import com.clickhouse.jdbc.ClickHouseDataSource;
+
+import org.apache.kafka.common.protocol.types.Field.Str;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,12 +28,13 @@ public class BaseDbWriter {
             String database,
             String userName,
             String password,
+            Boolean enableSsl,
             ClickHouseSinkConnectorConfig config
     ) {
         // split hostname with commas
         String[] hostNameStrings = hostNames.split(",",0);
         for (int i=0; i<hostNameStrings.length; i++){
-            String connectionUrl = getConnectionString((String)hostNameStrings[i], port, database);
+            String connectionUrl = getConnectionString((String)hostNameStrings[i], port, database, enableSsl);
             this.createConnection(connectionUrl, "Agent_" + i, userName, password);
         }
     }
@@ -39,7 +42,10 @@ public class BaseDbWriter {
     public ArrayList<ClickHouseConnection> getConnection() {
         return this.connections;
     }
-    public String getConnectionString(String hostName, Integer port, String database) {
+    public String getConnectionString(String hostName, Integer port, String database, Boolean enableSsl) {
+        if (enableSsl){
+            return String.format("jdbc:clickhouse://%s:%s/%s?ssl=true", hostName, port, database);
+        }
         return String.format("jdbc:clickhouse://%s:%s/%s", hostName, port, database);
     }
 

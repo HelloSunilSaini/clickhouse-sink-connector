@@ -65,7 +65,7 @@ public class DBMetadataTest {
         String password = clickHouseContainer.getPassword();
         String tableName = "employees";
 
-        DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password,
+        DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password, false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
 
         // Default database exists.

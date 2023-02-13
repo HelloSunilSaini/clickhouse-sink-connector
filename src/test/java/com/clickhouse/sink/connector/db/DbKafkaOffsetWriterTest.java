@@ -38,10 +38,10 @@ public class DbKafkaOffsetWriterTest {
         String password = clickHouseContainer.getPassword();
         String tableName = "employees";
 
-        DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password,
+        DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password, false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
 
-        DbKafkaOffsetWriter dbKafkaOffsetWriter = new DbKafkaOffsetWriter(dbHostName, port, database, "topic_offset_metadata", userName, password,
+        DbKafkaOffsetWriter dbKafkaOffsetWriter = new DbKafkaOffsetWriter(dbHostName, port, database, "topic_offset_metadata", userName, password, false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()));
 
         Map<MutablePair<String, Map<String, Integer>>, List<ClickHouseStruct>> queryToRecordsMap = new HashMap<>();

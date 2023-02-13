@@ -80,6 +80,7 @@ public class ClickHouseBatchRunnable implements Runnable {
         dbCredentials.setPort(config.getInt(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_PORT));
         dbCredentials.setUserName(config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_USER));
         dbCredentials.setPassword(config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_PASS));
+        dbCredentials.setEnableSsl(config.getBoolean(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_ENABLE_SSL));
 
         return dbCredentials;
     }
@@ -148,7 +149,7 @@ public class ClickHouseBatchRunnable implements Runnable {
 //        } else {
             writer = new DbWriter(this.dbCredentials.getHostNames(), this.dbCredentials.getPort(),
                     this.dbCredentials.getDatabase(), tableName, this.dbCredentials.getUserName(),
-                    this.dbCredentials.getPassword(), this.config, record);
+                    this.dbCredentials.getPassword(), this.dbCredentials.getEnableSsl(), this.config, record);
             this.topicToDbWriterMap.put(topicName, writer);
 //        }
 //
@@ -205,7 +206,7 @@ public class ClickHouseBatchRunnable implements Runnable {
         if (this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.ENABLE_KAFKA_OFFSET)) {
             log.info("***** KAFKA OFFSET MANAGEMENT ENABLED *****");
             DbKafkaOffsetWriter dbKafkaOffsetWriter = new DbKafkaOffsetWriter(dbCredentials.getHostNames(), dbCredentials.getPort(), dbCredentials.getDatabase(),
-                    "topic_offset_metadata", dbCredentials.getUserName(), dbCredentials.getPassword(), this.config);
+                    "topic_offset_metadata", dbCredentials.getUserName(), dbCredentials.getPassword(), dbCredentials.getEnableSsl(), this.config);
             try {
                 dbKafkaOffsetWriter.insertTopicOffsetMetadata(partitionToOffsetMap);
             } catch (SQLException e) {

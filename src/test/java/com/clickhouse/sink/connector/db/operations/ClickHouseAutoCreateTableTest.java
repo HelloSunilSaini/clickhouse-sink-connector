@@ -52,7 +52,7 @@ public class ClickHouseAutoCreateTableTest {
         String tableName = "auto_create_table";
 
         ClickHouseSinkConnectorConfig config= new ClickHouseSinkConnectorConfig(new HashMap<>());
-        DbWriter writer = new DbWriter(hostName, port, database, tableName, userName, password, config, null);
+        DbWriter writer = new DbWriter(hostName, port, database, tableName, userName, password,false, config, null);
 
         conn = writer.getConnection().get(0);
 
@@ -169,7 +169,7 @@ public class ClickHouseAutoCreateTableTest {
         String password = clickHouseContainer.getPassword();
         String tableName = "employees";
 
-        DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password,
+        DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password,false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
 
         ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();

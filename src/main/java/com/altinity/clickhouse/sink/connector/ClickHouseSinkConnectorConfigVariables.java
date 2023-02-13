@@ -1,6 +1,8 @@
 
 package com.altinity.clickhouse.sink.connector;
 
+import org.apache.kafka.common.protocol.types.Field.Str;
+
 public class ClickHouseSinkConnectorConfigVariables {
 
     public static final String THREAD_POOL_SIZE = "thread.pool.size";
@@ -15,6 +17,7 @@ public class ClickHouseSinkConnectorConfigVariables {
     public static final String CLICKHOUSE_PASS = "clickhouse.server.pass";
     public static final String CLICKHOUSE_DATABASE = "clickhouse.server.database";
     public static final String CLICKHOUSE_PORT = "clickhouse.server.port";
+    public static final String CLICKHOUSE_ENABLE_SSL = "clickhouse.enable.ssl";
 
     public static final String CLICKHOUSE_TABLE = "clickhouse.table.name";
 
