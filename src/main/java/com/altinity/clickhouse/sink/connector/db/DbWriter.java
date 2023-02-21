@@ -61,11 +61,12 @@ public class DbWriter extends BaseDbWriter {
             String tableName,
             String userName,
             String password,
+            Boolean enableSsl,
             ClickHouseSinkConnectorConfig config,
             ClickHouseStruct record
     )  {
         // Base class initiates connection using JDBC.
-        super(hostName, port, database, userName, password, config);
+        super(hostName, port, database, userName, password, enableSsl,config);
         this.tableName = tableName;
 
         this.config = config;
@@ -599,9 +600,10 @@ public class DbWriter extends BaseDbWriter {
             Field f = getFieldByColumnName(fields, colName);
             Schema.Type type = f.schema().type();
             String schemaName = f.schema().name();
+            Schema schema = f.schema();
             Object value = struct.get(f);
 
-            if(false == ClickHouseDataTypeMapper.convert(type, schemaName, value, index, ps)) {
+            if(false == ClickHouseDataTypeMapper.convert(type, schemaName,schema, value, index, ps)) {
                 log.error(String.format("**** DATA TYPE NOT HANDLED type(%s), name(%s), column name(%s)", type.toString(),
                         schemaName, colName));
             }

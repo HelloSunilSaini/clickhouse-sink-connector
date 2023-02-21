@@ -5,6 +5,8 @@ import com.google.common.io.BaseEncoding;
 import io.debezium.data.Enum;
 import io.debezium.data.EnumSet;
 import io.debezium.data.Json;
+import io.debezium.data.Xml;
+import io.debezium.data.Uuid;
 import io.debezium.data.geometry.Geometry;
 import io.debezium.time.*;
 import org.apache.commons.lang3.tuple.MutablePair;
@@ -14,10 +16,12 @@ import org.apache.kafka.connect.data.Struct;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayList;
 
 /**
  * Function that maps the debezium/kafka connect
@@ -37,16 +41,16 @@ public class ClickHouseDataTypeMapper {
         dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), null), ClickHouseDataType.Int64);
 
         // Float
-         dataTypesMap.put(new MutablePair(Schema.FLOAT32_SCHEMA.type(), null), ClickHouseDataType.Float32);
-         dataTypesMap.put(new MutablePair(Schema.FLOAT64_SCHEMA.type(), null), ClickHouseDataType.Float32);
+        dataTypesMap.put(new MutablePair(Schema.FLOAT32_SCHEMA.type(), null), ClickHouseDataType.Float32);
+        dataTypesMap.put(new MutablePair(Schema.FLOAT64_SCHEMA.type(), null), ClickHouseDataType.Float32);
 
-         // String
-         dataTypesMap.put(new MutablePair(Schema.STRING_SCHEMA.type(), null), ClickHouseDataType.String);
+        // String
+        dataTypesMap.put(new MutablePair(Schema.STRING_SCHEMA.type(), null), ClickHouseDataType.String);
 
-         // BLOB -> String
-         dataTypesMap.put(new MutablePair(Schema.BYTES_SCHEMA.type(), Decimal.LOGICAL_NAME), ClickHouseDataType.Decimal);
+        // BLOB -> String
+        dataTypesMap.put(new MutablePair(Schema.BYTES_SCHEMA.type(), Decimal.LOGICAL_NAME), ClickHouseDataType.Decimal);
 
-         // DATE
+        // DATE
         dataTypesMap.put(new MutablePair<>(Schema.INT32_SCHEMA.type(), Date.SCHEMA_NAME), ClickHouseDataType.Date32);
 
         // TIME
@@ -76,6 +80,12 @@ public class ClickHouseDataTypeMapper {
 
         dataTypesMap.put(new MutablePair<>(Schema.Type.STRING, Json.LOGICAL_NAME), ClickHouseDataType.String);
 
+        dataTypesMap.put(new MutablePair<>(Schema.Type.STRING, Xml.LOGICAL_NAME), ClickHouseDataType.String);
+
+        dataTypesMap.put(new MutablePair<>(Schema.Type.STRING, Uuid.LOGICAL_NAME), ClickHouseDataType.String);
+
+        dataTypesMap.put(new MutablePair<>(Schema.Type.STRING, Xml.LOGICAL_NAME), ClickHouseDataType.String);
+
         dataTypesMap.put(new MutablePair<>(Schema.INT32_SCHEMA.type(), Year.SCHEMA_NAME), ClickHouseDataType.Int32);
 
         // EnumSet -> String
@@ -83,6 +93,9 @@ public class ClickHouseDataTypeMapper {
 
         // Geometry -> Geometry
         dataTypesMap.put(new MutablePair<>(Schema.Type.STRUCT, Geometry.LOGICAL_NAME), ClickHouseDataType.String);
+
+        // Array -> Array
+        dataTypesMap.put(new MutablePair<>(Schema.Type.ARRAY, null), ClickHouseDataType.Array);
 
     }
 
@@ -98,7 +111,7 @@ public class ClickHouseDataTypeMapper {
      * @return true, if handled, false if the data type is not current handled.
      * @throws SQLException
      */
-    public static boolean convert(Schema.Type type, String schemaName,
+    public static boolean convert(Schema.Type type, String schemaName, Schema schema,
                                                Object value,
                                                int index,
                                                PreparedStatement ps) throws SQLException {
@@ -216,6 +229,15 @@ public class ClickHouseDataTypeMapper {
             } else {
                 ps.setString(index, "");
             }
+        } else if (type == Schema.Type.ARRAY){
+            // Object[] objects = ((ArrayList) value).toArray();
+            // Schema.Type valueSchemaType = schema.valueSchema().type();
+
+
+            // for(int i = 0;i < al1.size();i++){
+                
+            // }
+            ps.setObject(index, value);
         }
         else {
             result = false;

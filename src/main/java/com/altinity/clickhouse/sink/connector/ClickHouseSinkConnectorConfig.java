@@ -201,6 +201,16 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
                         ConfigDef.Width.NONE,
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_PORT)
                 .define(
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_ENABLE_SSL,
+                        Type.BOOLEAN,
+                        false,
+                        Importance.LOW,
+                        "ClickHouse ssl enabled",
+                        CONFIG_GROUP_CLICKHOUSE_LOGIN_INFO,
+                        3,
+                        ConfigDef.Width.NONE,
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_ENABLE_SSL)
+                .define(
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE,
                         Type.STRING,
                         null,
