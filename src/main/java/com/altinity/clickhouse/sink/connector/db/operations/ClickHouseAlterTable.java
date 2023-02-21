@@ -4,6 +4,8 @@ import com.altinity.clickhouse.sink.connector.db.ClickHouseDbConstants;
 
 import java.util.Map;
 
+import static com.altinity.clickhouse.sink.connector.db.ClickHouseDbConstants.*;
+
 /**
  * Class that handles logic related to alter table
  * in ClickHouse(Schema Evolution)
@@ -34,7 +36,7 @@ public class ClickHouseAlterTable extends ClickHouseTableOperationsBase{
             } else {
                 alterTableSyntax.append(ClickHouseDbConstants.ALTER_TABLE_DELETE_COLUMN).append(" ");
             }
-            alterTableSyntax.append("`").append(entry.getKey()).append("`").append(" ").append(entry.getValue()).append(",");
+            alterTableSyntax.append("`").append(entry.getKey()).append("`").append(" ").append(entry.getValue()).append(" ").append(NULL).append(",");
         }
         alterTableSyntax.deleteCharAt(alterTableSyntax.lastIndexOf(","));
 

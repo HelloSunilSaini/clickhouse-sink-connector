@@ -58,7 +58,9 @@ public class ClickHouseTableOperationsBase {
                     }
                 } else if(dataType == ClickHouseDataType.DateTime64){
                     // Timestamp (with milliseconds scale) , DATETIME, DATETIME(0 -3) -> DateTime64(3)
-                    if(f.schema().type() == Schema.INT64_SCHEMA.type() && f.schema().name().equalsIgnoreCase(Timestamp.SCHEMA_NAME)) {
+                    if((f.schema().type() == Schema.INT64_SCHEMA.type() && f.schema().name().equalsIgnoreCase(Timestamp.SCHEMA_NAME)) || 
+                    (f.schema().type() == Schema.INT64_SCHEMA.type() && f.schema().name().equalsIgnoreCase(org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME))
+                    ) {
                         columnToDataTypesMap.put(colName, "DateTime64(3)");
                     } else if((f.schema().type() == Schema.INT64_SCHEMA.type() && f.schema().name().equalsIgnoreCase(MicroTimestamp.SCHEMA_NAME)) ||
                             (f.schema().type() == Schema.STRING_SCHEMA.type() && f.schema().name().equalsIgnoreCase(ZonedTimestamp.SCHEMA_NAME)) ) {

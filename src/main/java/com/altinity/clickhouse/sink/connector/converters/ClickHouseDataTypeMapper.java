@@ -16,12 +16,10 @@ import org.apache.kafka.connect.data.Struct;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ArrayList;
 
 /**
  * Function that maps the debezium/kafka connect
@@ -56,8 +54,17 @@ public class ClickHouseDataTypeMapper {
         // TIME
         dataTypesMap.put(new MutablePair<>(Schema.INT32_SCHEMA.type(), Time.SCHEMA_NAME), ClickHouseDataType.String);
 
+
+        dataTypesMap.put(new MutablePair(Schema.INT32_SCHEMA.type(), org.apache.kafka.connect.data.Date.LOGICAL_NAME), ClickHouseDataType.Date32);
+        dataTypesMap.put(new MutablePair(Schema.INT32_SCHEMA.type(), org.apache.kafka.connect.data.Time.LOGICAL_NAME), ClickHouseDataType.String);
+
         // debezium.time.MicroTime -> String (Time does not exist in CH)
         dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), MicroTime.SCHEMA_NAME), ClickHouseDataType.String);
+
+
+        dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME), ClickHouseDataType.DateTime64);
+        dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), org.apache.kafka.connect.data.Date.LOGICAL_NAME), ClickHouseDataType.Date32);
+        dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), org.apache.kafka.connect.data.Time.LOGICAL_NAME), ClickHouseDataType.String);
 
         // Timestamp -> DateTime
         dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), Timestamp.SCHEMA_NAME), ClickHouseDataType.DateTime64);
@@ -143,10 +150,14 @@ public class ClickHouseDataTypeMapper {
 
         if (type == Schema.INT64_SCHEMA.type()) {
             // Time -> INT64 + io.debezium.time.MicroTime
-            if (schemaName != null && schemaName.equalsIgnoreCase(MicroTime.SCHEMA_NAME)) {
+            if (schemaName != null && schemaName.equalsIgnoreCase(MicroTime.SCHEMA_NAME) ||
+                (schemaName != null && schemaName.equalsIgnoreCase(org.apache.kafka.connect.data.Time.LOGICAL_NAME))
+            ) {
                 isFieldTime = true;
             } else if ((schemaName != null && schemaName.equalsIgnoreCase(Timestamp.SCHEMA_NAME)) ||
-                    (schemaName != null && schemaName.equalsIgnoreCase(MicroTimestamp.SCHEMA_NAME))) {
+                    (schemaName != null && schemaName.equalsIgnoreCase(MicroTimestamp.SCHEMA_NAME)) ||
+                    (schemaName != null && schemaName.equalsIgnoreCase(org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME))
+                    ) {
                 //DateTime -> INT64 + Timestamp(Debezium)
                 // MicroTimestamp ("yyyy-MM-dd HH:mm:ss")
                 isFieldDateTime = true;
@@ -195,10 +206,12 @@ public class ClickHouseDataTypeMapper {
                 }
                 else if (value instanceof Long) {
                     boolean isColumnDateTime64 = false;
-                    if(schemaName.equalsIgnoreCase(Timestamp.SCHEMA_NAME) && type == Schema.INT64_SCHEMA.type()){
+                    if((schemaName.equalsIgnoreCase(Timestamp.SCHEMA_NAME) || schemaName.equalsIgnoreCase(org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME)) && type == Schema.INT64_SCHEMA.type()){
                         isColumnDateTime64 = true;
                     }
                     ps.setLong(index, DebeziumConverter.TimestampConverter.convert(value, isColumnDateTime64));
+                } else if (value instanceof java.util.Date) {
+                    ps.setLong(index, ((java.util.Date) value).getTime());
                 }
             } else if (isFieldTime) {
                 ps.setString(index, DebeziumConverter.MicroTimeConverter.convert(value));
@@ -230,13 +243,6 @@ public class ClickHouseDataTypeMapper {
                 ps.setString(index, "");
             }
         } else if (type == Schema.Type.ARRAY){
-            // Object[] objects = ((ArrayList) value).toArray();
-            // Schema.Type valueSchemaType = schema.valueSchema().type();
-
-
-            // for(int i = 0;i < al1.size();i++){
-                
-            // }
             ps.setObject(index, value);
         }
         else {

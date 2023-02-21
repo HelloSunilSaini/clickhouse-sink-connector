@@ -50,10 +50,10 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
         for(Field f: fields) {
             String colName = f.name();
             String dataType = columnToDataTypesMap.get(colName);
-            boolean isNull = false;
-            if(f.schema().isOptional() == true) {
-                isNull = true;
-            }
+            // boolean isNull = false;
+            // if(f.schema().isOptional() == true) {
+            //     isNull = true;
+            // }
             createTableSyntax.append("`").append(colName).append("` ").append(dataType);
 
             // Ignore setting NULL OR not NULL for JSON.
@@ -63,10 +63,10 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
             } else if (dataType.contains("Array")){
                 createTableSyntax.append("");
             }else {
-                if (isNull) {
-                    createTableSyntax.append(" ").append(NULL);
-                } else {
+                if (primaryKey.contains(colName)) {
                     createTableSyntax.append(" ").append(NOT_NULL);
+                } else {
+                    createTableSyntax.append(" ").append(NULL);
                 }
             }
             createTableSyntax.append(",");
