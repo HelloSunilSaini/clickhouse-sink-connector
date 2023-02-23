@@ -19,6 +19,7 @@ public class ClickHouseSinkConnectorConfigVariables {
     public static final String CLICKHOUSE_PORT = "clickhouse.server.port";
     public static final String CLICKHOUSE_ENABLE_SSL = "clickhouse.enable.ssl";
 
+    public static final String CLICKHOUSE_TABLE_ENGINE = "clickhouse.table.engine";
     public static final String CLICKHOUSE_TABLE = "clickhouse.table.name";
 
     public static final String PROVIDER_CONFIG = "provider";

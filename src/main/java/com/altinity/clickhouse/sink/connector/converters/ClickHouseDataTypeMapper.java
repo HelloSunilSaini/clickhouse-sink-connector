@@ -13,6 +13,8 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -20,13 +22,15 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-
+import java.util.ArrayList;
 /**
  * Function that maps the debezium/kafka connect
  * data types to ClickHouse Data Types.
  *
  */
 public class ClickHouseDataTypeMapper {
+    private static final Logger log = LoggerFactory.getLogger(ClickHouseDataTypeMapper.class.getName());
+
     static Map<MutablePair<Schema.Type, String>, ClickHouseDataType> dataTypesMap;
 
     static {
@@ -98,6 +102,7 @@ public class ClickHouseDataTypeMapper {
         // EnumSet -> String
         dataTypesMap.put(new MutablePair<>(Schema.STRING_SCHEMA.type(), EnumSet.LOGICAL_NAME), ClickHouseDataType.String);
 
+        dataTypesMap.put(new MutablePair<>(Schema.Type.STRUCT, null), ClickHouseDataType.String);
         // Geometry -> Geometry
         dataTypesMap.put(new MutablePair<>(Schema.Type.STRUCT, Geometry.LOGICAL_NAME), ClickHouseDataType.String);
 
@@ -243,7 +248,25 @@ public class ClickHouseDataTypeMapper {
                 ps.setString(index, "");
             }
         } else if (type == Schema.Type.ARRAY){
-            ps.setObject(index, value);
+            Schema valueSchema = schema.valueSchema();
+            if (valueSchema.type() == Schema.Type.STRUCT) {
+                ArrayList<String> jsons = new ArrayList<>();
+                Map<String,Object> config = new HashMap<>();
+                config.put("schemas.enable", false);
+                for(int i = 0;i < ((ArrayList) value).size();i++){
+                    Object obj = ((ArrayList) value).get(i);
+                    org.apache.kafka.connect.json.JsonConverter jsonConverter = new org.apache.kafka.connect.json.JsonConverter();
+                    jsonConverter.configure(config, false);
+                    
+                    byte[] bytes = jsonConverter.fromConnectData("",valueSchema,obj);
+                    String s = new String(bytes);   
+                    jsons.add(s);
+                }
+                ps.setObject(index, jsons);
+
+            }else{
+                ps.setObject(index, value);
+            }
         }
         else {
             result = false;
@@ -261,7 +284,9 @@ public class ClickHouseDataTypeMapper {
             MutablePair mp = entry.getKey();
 
             if((schemaName == null && mp.right == null && kafkaConnectType == mp.left)  ||
-                    (kafkaConnectType == mp.left && (schemaName != null && schemaName.equalsIgnoreCase((String) mp.right)))) {
+                    (kafkaConnectType == mp.left && (schemaName != null && schemaName.equalsIgnoreCase((String) mp.right))) ||
+                    (kafkaConnectType == mp.left &&  mp.right == null && (schemaName != null && kafkaConnectType == Schema.Type.STRUCT))
+                    ) {
                 // Founding matching type.
                 matchingDataType = entry.getValue();
             }

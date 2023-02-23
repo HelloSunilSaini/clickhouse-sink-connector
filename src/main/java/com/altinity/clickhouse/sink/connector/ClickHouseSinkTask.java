@@ -166,7 +166,6 @@ public class ClickHouseSinkTask extends SinkTask {
                 return records_map;
             }
         }
-        log.info("###########- returning new record map -###########");
         return new ConcurrentHashMap<>();
     }
 

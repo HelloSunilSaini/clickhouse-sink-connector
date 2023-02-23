@@ -246,6 +246,9 @@ public class ClickHouseConverter implements AbstractConverter {
         } 
 
         Map<String, Object> convertedValueModified = new HashMap<>();
+        if (((Struct)obj).get("__ts_ms") != null){
+            convertedValueModified.put(SinkRecordColumns.TS_MS, ((Struct)obj).get("__ts_ms"));
+        }
         convertedValueModified.put(SinkRecordColumns.AFTER, obj);
         convertedValueModified.put(SinkRecordColumns.BEFORE, obj);
 

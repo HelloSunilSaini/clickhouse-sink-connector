@@ -12,6 +12,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.altinity.clickhouse.sink.connector.db.ClickHouseDbConstants.*;
+import com.altinity.clickhouse.sink.connector.ClickHouseSinkConnectorConfig;
+import com.altinity.clickhouse.sink.connector.ClickHouseSinkConnectorConfigVariables;
+import com.altinity.clickhouse.sink.connector.db.DBMetadata.*;
 
 /**
  * Class that wraps all functionality
@@ -21,7 +24,13 @@ import static com.altinity.clickhouse.sink.connector.db.ClickHouseDbConstants.*;
 public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
 
 
+    private final ClickHouseSinkConnectorConfig config;
+
     private static final Logger log = LoggerFactory.getLogger(ClickHouseAutoCreateTable.class.getName());
+
+    public ClickHouseAutoCreateTable(ClickHouseSinkConnectorConfig config)  {
+        this.config = config;
+    }
 
     public void createNewTable(ArrayList<String> primaryKey, String tableName, Field[] fields, ArrayList<ClickHouseConnection> connections) throws SQLException {
         Map<String, String> colNameToDataTypeMap = this.getColumnNameToCHDataTypeMapping(fields);
@@ -78,15 +87,16 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
         //createTableSyntax.deleteCharAt(createTableSyntax.lastIndexOf(","));
 
         // Append sign and version columns
-        createTableSyntax.append("`").append(SIGN_COLUMN).append("` ").append(SIGN_COLUMN_DATA_TYPE).append(" ").append(NULL).append(",");
-        createTableSyntax.append("`").append(VERSION_COLUMN).append("` ").append(VERSION_COLUMN_DATA_TYPE);
 
-        createTableSyntax.append(")");
-        createTableSyntax.append(" ");
-        createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(")");
-        createTableSyntax.append(" ");
-
-        if(primaryKey != null) {
+        createTableSyntax.append(") ");
+        if (this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE).trim().equalsIgnoreCase(TABLE_ENGINE.REPLICATED_MERGE_TREE.getEngine())){
+            createTableSyntax.append("ENGINE = ReplicatedMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', '{replica}') ");
+        } else {
+            createTableSyntax.append("`").append(SIGN_COLUMN).append("` ").append(SIGN_COLUMN_DATA_TYPE).append(" ").append(NULL).append(",");
+            createTableSyntax.append("`").append(VERSION_COLUMN).append("` ").append(VERSION_COLUMN_DATA_TYPE);
+            createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(") ");
+        }
+        if(primaryKey != null && !(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE).trim().equalsIgnoreCase(TABLE_ENGINE.REPLICATED_MERGE_TREE.getEngine()))) {
             createTableSyntax.append(PRIMARY_KEY).append("(");
             createTableSyntax.append(primaryKey.stream().map(Object::toString).collect(Collectors.joining(",")));
             createTableSyntax.append(") ");
