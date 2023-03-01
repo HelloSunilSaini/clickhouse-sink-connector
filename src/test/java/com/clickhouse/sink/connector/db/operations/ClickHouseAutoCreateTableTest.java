@@ -111,7 +111,7 @@ public class ClickHouseAutoCreateTableTest {
 
     @Test
     public void getColumnNameToCHDataTypeMappingTest() {
-        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
+        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable(new ClickHouseSinkConnectorConfig(new HashMap<>()));
         Field[] fields = createFields();
         Map<String, String> colNameToDataTypeMap = act.getColumnNameToCHDataTypeMapping(fields);
 
@@ -126,7 +126,7 @@ public class ClickHouseAutoCreateTableTest {
         ArrayList<String> primaryKeys = new ArrayList<>();
         primaryKeys.add("customerName");
 
-        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
+        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable(new ClickHouseSinkConnectorConfig(new HashMap<>()));
 
         String query = act.createTableSyntax(primaryKeys, "auto_create_table", createFields(), this.columnToDataTypesMap);
 
@@ -137,7 +137,7 @@ public class ClickHouseAutoCreateTableTest {
     @Test
     public void testCreateTableEmptyPrimaryKey() {
 
-        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
+        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable(new ClickHouseSinkConnectorConfig(new HashMap<>()));
 
         String query = act.createTableSyntax(null, "auto_create_table", createFields(), this.columnToDataTypesMap);
 
@@ -150,7 +150,7 @@ public class ClickHouseAutoCreateTableTest {
         primaryKeys.add("customer_id");
         primaryKeys.add("customer_name");
 
-        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
+        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable(new ClickHouseSinkConnectorConfig(new HashMap<>()));
 
         String query = act.createTableSyntax(primaryKeys, "auto_create_table", createFields(), this.columnToDataTypesMap);
 
@@ -172,7 +172,7 @@ public class ClickHouseAutoCreateTableTest {
         DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password,false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
 
-        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
+        ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable(new ClickHouseSinkConnectorConfig(new HashMap<>()));
         ArrayList<String> primaryKeys = new ArrayList<>();
         primaryKeys.add("customerName");
 

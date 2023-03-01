@@ -21,7 +21,7 @@ public class DBMetadata {
     public enum TABLE_ENGINE {
         COLLAPSING_MERGE_TREE("CollapsingMergeTree"),
         REPLACING_MERGE_TREE("ReplacingMergeTree"),
-
+        REPLICATED_MERGE_TREE("ReplicatedMergeTree"),
         REPLICATED_REPLACING_MERGE_TREE("ReplicatedReplacingMergeTree"),
 
         MERGE_TREE("MergeTree"),
@@ -118,6 +118,11 @@ public class DBMetadata {
                     } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
                         result.right = getVersionColumnForReplacingMergeTree(response);
+                    } else if (response.contains(TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.engine)){
+                        result.left = TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE;
+                        result.right = getVersionColumnForReplacingMergeTree(response);
+                    } else if (response.contains(TABLE_ENGINE.REPLICATED_MERGE_TREE.engine)){
+                        result.left = TABLE_ENGINE.REPLICATED_MERGE_TREE;
                     } else if(response.contains(TABLE_ENGINE.MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.MERGE_TREE;
                     }else {
@@ -137,7 +142,7 @@ public class DBMetadata {
 
     public static final String COLLAPSING_MERGE_TREE_SIGN_PREFIX = "CollapsingMergeTree(";
     public static final String REPLACING_MERGE_TREE_VER_PREFIX = "ReplacingMergeTree(";
-
+    public static final String REPLICATED_MERGE_TREE_VER_PREFIX = "ReplicatedMergeTree(";
     public static final String REPLICATED_REPLACING_MERGE_TREE_VER_PREFIX = "ReplicatedReplacingMergeTree(";
     /**
      * Function to extract the sign column for CollapsingMergeTree
@@ -227,6 +232,11 @@ public class DBMetadata {
         } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
             result.right = getVersionColumnForReplacingMergeTree(response);
+        } else if (response.contains(TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.engine)){
+            result.left = TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE;
+            result.right = getVersionColumnForReplacingMergeTree(response);
+        } else if (response.contains(TABLE_ENGINE.REPLICATED_MERGE_TREE.engine)){
+            result.left = TABLE_ENGINE.REPLICATED_MERGE_TREE;
         } else if(response.contains(TABLE_ENGINE.MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.MERGE_TREE;
         } else {

@@ -13,22 +13,24 @@ import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
-
 /**
  * Function that maps the debezium/kafka connect
  * data types to ClickHouse Data Types.
  *
  */
 public class ClickHouseDataTypeMapper {
+    private static final Logger log = LoggerFactory.getLogger(ClickHouseDataTypeMapper.class.getName());
+
     static Map<MutablePair<Schema.Type, String>, ClickHouseDataType> dataTypesMap;
 
     static {
@@ -56,8 +58,17 @@ public class ClickHouseDataTypeMapper {
         // TIME
         dataTypesMap.put(new MutablePair<>(Schema.INT32_SCHEMA.type(), Time.SCHEMA_NAME), ClickHouseDataType.String);
 
+
+        dataTypesMap.put(new MutablePair(Schema.INT32_SCHEMA.type(), org.apache.kafka.connect.data.Date.LOGICAL_NAME), ClickHouseDataType.Date32);
+        dataTypesMap.put(new MutablePair(Schema.INT32_SCHEMA.type(), org.apache.kafka.connect.data.Time.LOGICAL_NAME), ClickHouseDataType.String);
+
         // debezium.time.MicroTime -> String (Time does not exist in CH)
         dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), MicroTime.SCHEMA_NAME), ClickHouseDataType.String);
+
+
+        dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME), ClickHouseDataType.DateTime64);
+        dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), org.apache.kafka.connect.data.Date.LOGICAL_NAME), ClickHouseDataType.Date32);
+        dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), org.apache.kafka.connect.data.Time.LOGICAL_NAME), ClickHouseDataType.String);
 
         // Timestamp -> DateTime
         dataTypesMap.put(new MutablePair(Schema.INT64_SCHEMA.type(), Timestamp.SCHEMA_NAME), ClickHouseDataType.DateTime64);
@@ -91,6 +102,7 @@ public class ClickHouseDataTypeMapper {
         // EnumSet -> String
         dataTypesMap.put(new MutablePair<>(Schema.STRING_SCHEMA.type(), EnumSet.LOGICAL_NAME), ClickHouseDataType.String);
 
+        dataTypesMap.put(new MutablePair<>(Schema.Type.STRUCT, null), ClickHouseDataType.String);
         // Geometry -> Geometry
         dataTypesMap.put(new MutablePair<>(Schema.Type.STRUCT, Geometry.LOGICAL_NAME), ClickHouseDataType.String);
 
@@ -143,10 +155,14 @@ public class ClickHouseDataTypeMapper {
 
         if (type == Schema.INT64_SCHEMA.type()) {
             // Time -> INT64 + io.debezium.time.MicroTime
-            if (schemaName != null && schemaName.equalsIgnoreCase(MicroTime.SCHEMA_NAME)) {
+            if (schemaName != null && schemaName.equalsIgnoreCase(MicroTime.SCHEMA_NAME) ||
+                (schemaName != null && schemaName.equalsIgnoreCase(org.apache.kafka.connect.data.Time.LOGICAL_NAME))
+            ) {
                 isFieldTime = true;
             } else if ((schemaName != null && schemaName.equalsIgnoreCase(Timestamp.SCHEMA_NAME)) ||
-                    (schemaName != null && schemaName.equalsIgnoreCase(MicroTimestamp.SCHEMA_NAME))) {
+                    (schemaName != null && schemaName.equalsIgnoreCase(MicroTimestamp.SCHEMA_NAME)) ||
+                    (schemaName != null && schemaName.equalsIgnoreCase(org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME))
+                    ) {
                 //DateTime -> INT64 + Timestamp(Debezium)
                 // MicroTimestamp ("yyyy-MM-dd HH:mm:ss")
                 isFieldDateTime = true;
@@ -195,10 +211,12 @@ public class ClickHouseDataTypeMapper {
                 }
                 else if (value instanceof Long) {
                     boolean isColumnDateTime64 = false;
-                    if(schemaName.equalsIgnoreCase(Timestamp.SCHEMA_NAME) && type == Schema.INT64_SCHEMA.type()){
+                    if((schemaName.equalsIgnoreCase(Timestamp.SCHEMA_NAME) || schemaName.equalsIgnoreCase(org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME)) && type == Schema.INT64_SCHEMA.type()){
                         isColumnDateTime64 = true;
                     }
                     ps.setLong(index, DebeziumConverter.TimestampConverter.convert(value, isColumnDateTime64));
+                } else if (value instanceof java.util.Date) {
+                    ps.setLong(index, ((java.util.Date) value).getTime());
                 }
             } else if (isFieldTime) {
                 ps.setString(index, DebeziumConverter.MicroTimeConverter.convert(value));
@@ -230,14 +248,25 @@ public class ClickHouseDataTypeMapper {
                 ps.setString(index, "");
             }
         } else if (type == Schema.Type.ARRAY){
-            // Object[] objects = ((ArrayList) value).toArray();
-            // Schema.Type valueSchemaType = schema.valueSchema().type();
+            Schema valueSchema = schema.valueSchema();
+            if (valueSchema.type() == Schema.Type.STRUCT) {
+                ArrayList<String> jsons = new ArrayList<>();
+                Map<String,Object> config = new HashMap<>();
+                config.put("schemas.enable", false);
+                for(int i = 0;i < ((ArrayList) value).size();i++){
+                    Object obj = ((ArrayList) value).get(i);
+                    org.apache.kafka.connect.json.JsonConverter jsonConverter = new org.apache.kafka.connect.json.JsonConverter();
+                    jsonConverter.configure(config, false);
+                    
+                    byte[] bytes = jsonConverter.fromConnectData("",valueSchema,obj);
+                    String s = new String(bytes);   
+                    jsons.add(s);
+                }
+                ps.setObject(index, jsons);
 
-
-            // for(int i = 0;i < al1.size();i++){
-                
-            // }
-            ps.setObject(index, value);
+            }else{
+                ps.setObject(index, value);
+            }
         }
         else {
             result = false;
@@ -255,7 +284,9 @@ public class ClickHouseDataTypeMapper {
             MutablePair mp = entry.getKey();
 
             if((schemaName == null && mp.right == null && kafkaConnectType == mp.left)  ||
-                    (kafkaConnectType == mp.left && (schemaName != null && schemaName.equalsIgnoreCase((String) mp.right)))) {
+                    (kafkaConnectType == mp.left && (schemaName != null && schemaName.equalsIgnoreCase((String) mp.right))) ||
+                    (kafkaConnectType == mp.left &&  mp.right == null && (schemaName != null && kafkaConnectType == Schema.Type.STRUCT))
+                    ) {
                 // Founding matching type.
                 matchingDataType = entry.getValue();
             }

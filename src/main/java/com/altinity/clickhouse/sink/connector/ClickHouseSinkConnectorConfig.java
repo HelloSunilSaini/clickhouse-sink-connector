@@ -211,6 +211,17 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
                         ConfigDef.Width.NONE,
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_ENABLE_SSL)
                 .define(
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE,
+                        Type.STRING,
+                        null,
+                        new ConfigDef.NonEmptyString(),
+                        Importance.HIGH,
+                        "Clickhouse table engine",
+                        CONFIG_GROUP_CLICKHOUSE_LOGIN_INFO,
+                        3,
+                        ConfigDef.Width.NONE,
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE)
+                .define(
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE,
                         Type.STRING,
                         null,

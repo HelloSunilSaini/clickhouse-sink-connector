@@ -3,6 +3,8 @@ package com.altinity.clickhouse.sink.connector.converters;
 import com.altinity.clickhouse.sink.connector.metadata.KafkaSchemaRecordType;
 import com.altinity.clickhouse.sink.connector.model.ClickHouseStruct;
 import com.altinity.clickhouse.sink.connector.model.SinkRecordColumns;
+import com.google.common.collect.MapMaker;
+
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -181,7 +183,7 @@ public class ClickHouseConverter implements AbstractConverter {
      */
 
     public CDC_OPERATION getOperation(final SinkRecord record) {
-        CDC_OPERATION cdcOperation = null;
+        CDC_OPERATION cdcOperation = CDC_OPERATION.CREATE;
         log.debug("convert()");
 
         Map<String, Object> convertedValue = convertValue(record);
@@ -226,35 +228,31 @@ public class ClickHouseConverter implements AbstractConverter {
         log.debug("convert()");
 
         //Map<String, Object> convertedKey = convertKey(record);
-        Map<String, Object> convertedValue = convertValue(record);
+        // Map<String, Object> convertedValue = convertValue(record);
         ClickHouseStruct chStruct = null;
 
-        if(convertedValue == null) {
-            log.debug("Error converting Kafka Sink Record");
-            return chStruct;
-        }
-        // Check "operation" represented by this record.
-        if (convertedValue.containsKey(SinkRecordColumns.OPERATION)) {
-            // Operation (u, c)
-            String operation = (String) convertedValue.get(SinkRecordColumns.OPERATION);
-            if (operation.equalsIgnoreCase(CDC_OPERATION.CREATE.operation) ||
-                    operation.equalsIgnoreCase(CDC_OPERATION.READ.operation)) {
-                // Inserts.
-                log.debug("CREATE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.AFTER, CDC_OPERATION.CREATE);
-            } else if (operation.equalsIgnoreCase(CDC_OPERATION.UPDATE.operation)) {
-                // Updates.
-                log.debug("UPDATE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.AFTER, CDC_OPERATION.UPDATE);
-            } else if (operation.equalsIgnoreCase(CDC_OPERATION.DELETE.operation)) {
-                // Deletes.
-                log.debug("DELETE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.BEFORE, CDC_OPERATION.DELETE);
-            } else if(operation.equalsIgnoreCase(CDC_OPERATION.TRUNCATE.operation)) {
-                log.debug("TRUNCATE received");
-                chStruct = readBeforeOrAfterSection(convertedValue, record, SinkRecordColumns.BEFORE, CDC_OPERATION.TRUNCATE);
+        Schema schema = record.valueSchema();
+        Object obj = record.value();
+        
+        if (schema == null) {
+            log.debug("Schema is empty");
+            if (obj instanceof Map) {
+                log.info("SCHEMA LESS RECORD");
             }
+            return chStruct;
+        } else if (schema.type() != Schema.Type.STRUCT) {
+            log.error("NON STRUCT records ignored");
+            return chStruct;
+        } 
+
+        Map<String, Object> convertedValueModified = new HashMap<>();
+        if (((Struct)obj).get("__ts_ms") != null){
+            convertedValueModified.put(SinkRecordColumns.TS_MS, ((Struct)obj).get("__ts_ms"));
         }
+        convertedValueModified.put(SinkRecordColumns.AFTER, obj);
+        convertedValueModified.put(SinkRecordColumns.BEFORE, obj);
+
+        chStruct = readBeforeOrAfterSection(convertedValueModified, record, SinkRecordColumns.AFTER, CDC_OPERATION.CREATE);
 
         return chStruct;
     }
@@ -269,23 +267,20 @@ public class ClickHouseConverter implements AbstractConverter {
      */
     private ClickHouseStruct readBeforeOrAfterSection(Map<String, Object> convertedValue,
                                               SinkRecord record, String sectionKey, CDC_OPERATION operation) {
-
         ClickHouseStruct chStruct = null;
         if (convertedValue.containsKey(sectionKey)) {
             Object beforeSection = convertedValue.get(SinkRecordColumns.BEFORE);
             Object afterSection = convertedValue.get(SinkRecordColumns.AFTER);
+            Struct afterStruct = (Struct) afterSection;
+            Struct beforeStruct = (Struct) beforeSection;
+            Struct recordKey = (Struct) record.key();
 
             chStruct = new ClickHouseStruct(record.kafkaOffset(),
-                    record.topic(), (Struct) record.key(), record.kafkaPartition(),
-                    record.timestamp(), (Struct) beforeSection, (Struct) afterSection,
+                    record.topic(), recordKey, record.kafkaPartition(),
+                    record.timestamp(), beforeStruct, afterStruct,
                     convertedValue, operation);
 
-        } else if(operation.getOperation().equalsIgnoreCase(CDC_OPERATION.TRUNCATE.operation)) {
-            // Truncate does not have before/after.
-            chStruct = new ClickHouseStruct(record.kafkaOffset(), record.topic(), null, record.kafkaPartition(),
-                    record.timestamp(), null, null, convertedValue, operation);
-        }
-
+        } 
         return chStruct;
     }
 
@@ -319,7 +314,7 @@ public class ClickHouseConverter implements AbstractConverter {
                 log.error("NON STRUCT records ignored");
             } else {
                 // Convert STRUCT
-                log.debug("RECEIVED STRUCT");
+                log.info("RECEIVED STRUCT");
                 result = convertStruct(obj, schema);
             }
         }

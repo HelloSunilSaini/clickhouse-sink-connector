@@ -92,7 +92,7 @@ public class DbWriter extends BaseDbWriter {
             if (this.engine == null) {
                 if (this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.AUTO_CREATE_TABLES)) {
                     log.info(String.format("**** Task(%s), AUTO CREATE TABLE (%s) *** ",taskId, tableName));
-                    ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
+                    ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable(this.config);
                     try {
                         act.createNewTable(record.getPrimaryKey(), tableName, record.getAfterStruct().schema().fields().toArray(new Field[0]), this.connections);
                         this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
@@ -362,7 +362,7 @@ public class DbWriter extends BaseDbWriter {
                     for(int i= 0; i< connections.size();i++){
                         cat.runQuery(alterTableQuery, connections.get(i));
                     }
-                    this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
+                    this.columnNameToDataTypeMap.putAll(this.getColumnsDataTypesForTable(tableName));
                 } catch(Exception e) {
                     log.error(" **** ALTER TABLE EXCEPTION ", e);
                 }
