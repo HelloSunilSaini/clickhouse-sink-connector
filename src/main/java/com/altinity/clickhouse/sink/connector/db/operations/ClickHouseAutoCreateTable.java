@@ -59,7 +59,9 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
             if(dataType != null && dataType.equalsIgnoreCase(ClickHouseDataType.JSON.name())) {
                 // ignore adding nulls;
                 createTableSyntax.append(" ").append(NULL);
-            } else {
+            } else if (dataType.contains("Array")){
+                createTableSyntax.append("");
+            }else {
                 if (isNull) {
                     createTableSyntax.append(" ").append(NULL);
                 } else {
