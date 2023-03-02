@@ -63,7 +63,8 @@ public class DbWriter extends BaseDbWriter {
             String password,
             Boolean enableSsl,
             ClickHouseSinkConnectorConfig config,
-            ClickHouseStruct record
+            ClickHouseStruct record,
+            String partitionBy
     )  {
         // Base class initiates connection using JDBC.
         super(hostName, port, database, userName, password, enableSsl,config);
@@ -94,7 +95,7 @@ public class DbWriter extends BaseDbWriter {
                     log.info(String.format("**** Task(%s), AUTO CREATE TABLE (%s) *** ",taskId, tableName));
                     ClickHouseAutoCreateTable act = new ClickHouseAutoCreateTable();
                     try {
-                        act.createNewTable(record.getPrimaryKey(), tableName, record.getAfterStruct().schema().fields().toArray(new Field[0]), this.connections);
+                        act.createNewTable(record.getPrimaryKey(), tableName, record.getAfterStruct().schema().fields().toArray(new Field[0]), this.connections, partitionBy);
                         this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
                         response = metadata.getTableEngine(this.connections, database, tableName);
                         this.engine = response.getLeft();
@@ -362,7 +363,7 @@ public class DbWriter extends BaseDbWriter {
                     for(int i= 0; i< connections.size();i++){
                         cat.runQuery(alterTableQuery, connections.get(i));
                     }
-                    this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
+                    this.columnNameToDataTypeMap.putAll(this.getColumnsDataTypesForTable(tableName));
                 } catch(Exception e) {
                     log.error(" **** ALTER TABLE EXCEPTION ", e);
                 }

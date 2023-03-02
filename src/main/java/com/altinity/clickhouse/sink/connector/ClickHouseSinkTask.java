@@ -61,6 +61,8 @@ public class ClickHouseSinkTask extends SinkTask {
 
     private Map<String, String> topic2TableMap = null;
 
+    private Map<String, String> table2PatitionByMap = null;
+
     @Override
     public void start(Map<String, String> config) {
 
@@ -73,6 +75,7 @@ public class ClickHouseSinkTask extends SinkTask {
 
         try {
              this.topic2TableMap = Utils.parseTopicToTableMap(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TOPICS_TABLES_MAP));
+             this.table2PatitionByMap = Utils.parseTopicToTableMap(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLES_TO_PARTITIONBY_MAP));
         } catch (Exception e) {
             log.error("Error parsing topic to table map" + e);
         }
@@ -181,12 +184,12 @@ public class ClickHouseSinkTask extends SinkTask {
     private void checkAndExecuteRecordsMap(ConcurrentHashMap<String, ConcurrentLinkedQueue<ClickHouseStruct>> records_map){
         if (!records_map.containsKey(RECORDS_VAR_IN_EXECUTION)) {
             log.info("#############- in direct execution -#############");
-            ClickHouseBatchRunnable runnable = new ClickHouseBatchRunnable(records_map, this.config, this.topic2TableMap);
+            ClickHouseBatchRunnable runnable = new ClickHouseBatchRunnable(records_map, this.config, this.topic2TableMap, this.table2PatitionByMap);
             this.executor.execute(runnable);
         }else if (getRecordsMapSize(records_map) >= this.config.getLong(ClickHouseSinkConnectorConfigVariables.BUFFER_MAX_RECORDS)){
             log.info("#############- in buffer execution for size "+ getRecordsMapSize(records_map) + " -#############");
             records_map.put(RECORDS_VAR_IN_EXECUTION, this.dummyLinkedQueue);
-            ClickHouseBatchRunnable runnable = new ClickHouseBatchRunnable(records_map, this.config, this.topic2TableMap);
+            ClickHouseBatchRunnable runnable = new ClickHouseBatchRunnable(records_map, this.config, this.topic2TableMap, this.table2PatitionByMap);
             this.executor.execute(runnable);
         }
     }
@@ -206,7 +209,7 @@ public class ClickHouseSinkTask extends SinkTask {
             if (!isRecordsMapInExecution(records_map) && getRecordsMapSize(records_map) > 0){
                 log.info("############- in all execution for size " + getRecordsMapSize(records_map) + " -#############");
                 records_map.put(RECORDS_VAR_IN_EXECUTION, this.dummyLinkedQueue);
-                ClickHouseBatchRunnable runnable = new ClickHouseBatchRunnable(records_map, this.config, this.topic2TableMap);
+                ClickHouseBatchRunnable runnable = new ClickHouseBatchRunnable(records_map, this.config, this.topic2TableMap, this.table2PatitionByMap);
                 this.executor.execute(runnable);
             }
         }

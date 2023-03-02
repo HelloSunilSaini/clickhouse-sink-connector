@@ -11,6 +11,7 @@ import com.altinity.clickhouse.sink.connector.model.ClickHouseStruct;
 import com.altinity.clickhouse.sink.connector.model.DBCredentials;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.protocol.types.Field.Str;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +45,7 @@ public class ClickHouseBatchRunnable implements Runnable {
      */
     // Map of topic names to table names.
     private final Map<String, String> topic2TableMap;
+    private final Map<String, String> table2PatitionByMap;
 
     // Map of topic name to CLickHouseConnection instance(DbWriter)
     private Map<String, DbWriter> topicToDbWriterMap;
@@ -55,7 +57,7 @@ public class ClickHouseBatchRunnable implements Runnable {
 
     public ClickHouseBatchRunnable(ConcurrentHashMap<String, ConcurrentLinkedQueue<ClickHouseStruct>> records,
                                    ClickHouseSinkConnectorConfig config,
-                                   Map<String, String> topic2TableMap) {
+                                   Map<String, String> topic2TableMap, Map<String,String> table2PatitionByMap) {
         this.records = records;
         this.config = config;
         if (topic2TableMap == null) {
@@ -63,7 +65,11 @@ public class ClickHouseBatchRunnable implements Runnable {
         } else {
             this.topic2TableMap = topic2TableMap;
         }
-
+        if (table2PatitionByMap == null) {
+            this.table2PatitionByMap = new HashMap<>();
+        }else{
+            this.table2PatitionByMap = table2PatitionByMap;
+        }
         //this.queryToRecordsMap = new HashMap<>();
         this.topicToDbWriterMap = new HashMap<>();
         this.topicToRecordsMap = new HashMap<>();
@@ -147,10 +153,16 @@ public class ClickHouseBatchRunnable implements Runnable {
 //        if (this.topicToDbWriterMap.containsKey(topicName)) {
 //            writer = this.topicToDbWriterMap.get(topicName);
 //        } else {
+        if (this.table2PatitionByMap.containsKey(tableName)){
             writer = new DbWriter(this.dbCredentials.getHostNames(), this.dbCredentials.getPort(),
                     this.dbCredentials.getDatabase(), tableName, this.dbCredentials.getUserName(),
-                    this.dbCredentials.getPassword(), this.dbCredentials.getEnableSsl(), this.config, record);
-            this.topicToDbWriterMap.put(topicName, writer);
+                    this.dbCredentials.getPassword(), this.dbCredentials.getEnableSsl(), this.config, record, this.table2PatitionByMap.get(tableName));
+        } else{
+            writer = new DbWriter(this.dbCredentials.getHostNames(), this.dbCredentials.getPort(),
+                    this.dbCredentials.getDatabase(), tableName, this.dbCredentials.getUserName(),
+                    this.dbCredentials.getPassword(), this.dbCredentials.getEnableSsl(), this.config, record, "");
+        }
+        this.topicToDbWriterMap.put(topicName, writer);
 //        }
 //
         return writer;

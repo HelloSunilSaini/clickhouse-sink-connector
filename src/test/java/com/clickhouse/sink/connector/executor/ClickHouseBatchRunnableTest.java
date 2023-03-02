@@ -22,6 +22,7 @@ public class ClickHouseBatchRunnableTest {
     ConcurrentHashMap<String, ConcurrentLinkedQueue<ClickHouseStruct>>
             records = new ConcurrentHashMap<>();
     Map<String, String> topic2TableMap = new HashMap<>();
+    Map<String, String> table2PatitionByMap = new HashMap<>();
 
     @Before
     public void initTest() {
@@ -80,7 +81,7 @@ public class ClickHouseBatchRunnableTest {
     @Test
     public void testGetTableNameFromTopic() {
         ClickHouseSinkConnectorConfig config = new ClickHouseSinkConnectorConfig(new HashMap<String, String>());
-        ClickHouseBatchRunnable run = new ClickHouseBatchRunnable(this.records, config, this.topic2TableMap);
+        ClickHouseBatchRunnable run = new ClickHouseBatchRunnable(this.records, config, this.topic2TableMap, this.table2PatitionByMap);
 
         String tableName = run.getTableFromTopic("SERVER5432.test.customers");
 

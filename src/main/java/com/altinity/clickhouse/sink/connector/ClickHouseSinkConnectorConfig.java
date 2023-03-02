@@ -222,6 +222,18 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
                         ConfigDef.Width.NONE,
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE)
                 .define(
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLES_TO_PARTITIONBY_MAP,
+                        Type.STRING,
+                        "",
+                        new TopicToTableValidator(),
+                        Importance.LOW,
+                        "Map of tables to patition by (optional). Format : comma-separated tuples, e.g."
+                                + " <table-1>:toYYYYMM(created_at),<table-2>:toYYYYMM(created_on),... ",
+                        CONFIG_GROUP_CONNECTOR_CONFIG,
+                        0,
+                        ConfigDef.Width.NONE,
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLES_TO_PARTITIONBY_MAP)
+                .define(
                         ClickHouseSinkConnectorConfigVariables.STORE_KAFKA_METADATA,
                         Type.BOOLEAN,
                         "false",

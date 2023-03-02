@@ -66,7 +66,7 @@ public class DBMetadataTest {
         String tableName = "employees";
 
         DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password, false,
-                new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
+                new ClickHouseSinkConnectorConfig(new HashMap<>()), null, "");
 
         // Default database exists.
         boolean result = new DBMetadata().checkIfDatabaseExists(writer.getConnection().get(0), "default");
