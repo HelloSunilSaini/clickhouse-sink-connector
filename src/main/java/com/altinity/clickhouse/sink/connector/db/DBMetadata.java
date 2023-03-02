@@ -20,6 +20,9 @@ public class DBMetadata {
 
     public enum TABLE_ENGINE {
         COLLAPSING_MERGE_TREE("CollapsingMergeTree"),
+
+        REPLICATED_COLLAPSING_MERGE_TREE("ReplicatedCollapsingMergeTree"),
+
         REPLACING_MERGE_TREE("ReplacingMergeTree"),
 
         REPLICATED_REPLACING_MERGE_TREE("ReplicatedReplacingMergeTree"),
@@ -115,6 +118,9 @@ public class DBMetadata {
                     if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.COLLAPSING_MERGE_TREE;
                         result.right = getSignColumnForCollapsingMergeTree(response);
+                    } else if (response.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.engine)){
+                        result.left = TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE;
+                        result.right = getSignColumnForCollapsingMergeTree(response);
                     } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
                         result.right = getVersionColumnForReplacingMergeTree(response);
@@ -136,6 +142,7 @@ public class DBMetadata {
     }
 
     public static final String COLLAPSING_MERGE_TREE_SIGN_PREFIX = "CollapsingMergeTree(";
+    public static final String REPLICATED_COLLAPSING_MERGE_TREE_SIGN_PREFIX = "ReplicatedCollapsingMergeTree(";
     public static final String REPLACING_MERGE_TREE_VER_PREFIX = "ReplacingMergeTree(";
 
     public static final String REPLICATED_REPLACING_MERGE_TREE_VER_PREFIX = "ReplicatedReplacingMergeTree(";
@@ -150,6 +157,14 @@ public class DBMetadata {
 
         if(createDML.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
             signColumn = StringUtils.substringBetween(createDML, COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
+        } else if (createDML.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine())){
+            String parameters = StringUtils.substringBetween(createDML, REPLICATED_COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
+            if(parameters != null) {
+                String[] parameterArray = parameters.split(",");
+                if(parameterArray != null && parameterArray.length >= 3) {
+                    signColumn = parameterArray[2].trim();
+                }
+            }
         } else {
             log.error("Error: Trying to retrieve sign from table that is not CollapsingMergeTree");
         }
@@ -223,6 +238,9 @@ public class DBMetadata {
 
         if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.COLLAPSING_MERGE_TREE;
+            result.right = getSignColumnForCollapsingMergeTree(response);
+        } else if (response.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.engine)){
+            result.left = TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE;
             result.right = getSignColumnForCollapsingMergeTree(response);
         } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;

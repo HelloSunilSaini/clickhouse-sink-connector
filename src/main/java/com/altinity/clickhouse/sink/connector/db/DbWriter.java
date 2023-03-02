@@ -622,7 +622,7 @@ public class DbWriter extends BaseDbWriter {
 
         // Sign column.
         //String signColumn = this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_SIGN_COLUMN);
-        if(this.engine != null && this.engine.getEngine() == DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine() &&
+        if(this.engine != null && (this.engine.getEngine() == DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine() ||this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine()) &&
         this.signColumn != null)
         if (this.columnNameToDataTypeMap.containsKey(signColumn) && columnNameToIndexMap.containsKey(signColumn)) {
             int signColumnIndex = columnNameToIndexMap.get(signColumn);
