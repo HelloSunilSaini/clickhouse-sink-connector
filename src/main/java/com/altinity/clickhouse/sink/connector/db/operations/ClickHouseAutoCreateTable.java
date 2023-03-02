@@ -88,12 +88,14 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
 
         // Append sign and version columns
 
-        createTableSyntax.append(") ");
         if (this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE).trim().equalsIgnoreCase(TABLE_ENGINE.REPLICATED_MERGE_TREE.getEngine())){
+            createTableSyntax.deleteCharAt(createTableSyntax.length()-1);  
+            createTableSyntax.append(") ");
             createTableSyntax.append("ENGINE = ReplicatedMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', '{replica}') ");
         } else {
             createTableSyntax.append("`").append(SIGN_COLUMN).append("` ").append(SIGN_COLUMN_DATA_TYPE).append(" ").append(NULL).append(",");
             createTableSyntax.append("`").append(VERSION_COLUMN).append("` ").append(VERSION_COLUMN_DATA_TYPE);
+            createTableSyntax.append(") ");
             createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(") ");
         }
         if(primaryKey != null && !(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE).trim().equalsIgnoreCase(TABLE_ENGINE.REPLICATED_MERGE_TREE.getEngine()))) {
