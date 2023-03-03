@@ -23,14 +23,13 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
 
     private static final Logger log = LoggerFactory.getLogger(ClickHouseAutoCreateTable.class.getName());
 
-    public void createNewTable(ArrayList<String> primaryKey, String tableName, Field[] fields, ArrayList<ClickHouseConnection> connections) throws SQLException {
+    public void createNewTable(ArrayList<String> primaryKey, String tableName, Field[] fields, ArrayList<ClickHouseConnection> connections, String partitionBy) throws SQLException {
         Map<String, String> colNameToDataTypeMap = this.getColumnNameToCHDataTypeMapping(fields);
-        String createTableQuery = this.createTableSyntax(primaryKey, tableName, fields, colNameToDataTypeMap);
+        String createTableQuery = this.createTableSyntax(primaryKey, tableName, fields, colNameToDataTypeMap, partitionBy);
         // ToDO: need to run it before a session is created.
+        log.info("**** AUTO CREATE TABLE " + createTableQuery);
         for (int i=0;i<connections.size();i++){
-            String createTableQueryFinal = createTableQuery.replace("{replica}", "" + i);
-            log.info("**** AUTO CREATE TABLE " + createTableQueryFinal);
-            this.runQuery(createTableQueryFinal, connections.get(i));
+            this.runQuery(createTableQuery, connections.get(i));
         }
     }
 
@@ -41,11 +40,11 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
      * @param columnToDataTypesMap
      * @return CREATE TABLE query
      */
-    public java.lang.String createTableSyntax(ArrayList<String> primaryKey, String tableName, Field[] fields, Map<String, String> columnToDataTypesMap) {
+    public java.lang.String createTableSyntax(ArrayList<String> primaryKey, String tableName, Field[] fields, Map<String, String> columnToDataTypesMap, String partitionBy) {
 
         StringBuilder createTableSyntax = new StringBuilder();
 
-        createTableSyntax.append(CREATE_TABLE).append(" ").append(tableName).append("(");
+        createTableSyntax.append(CREATE_TABLE).append(" ").append(tableName).append(" on CLUSTER '{cluster}' (");
 
         for(Field f: fields) {
             String colName = f.name();
@@ -78,12 +77,12 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
         //createTableSyntax.deleteCharAt(createTableSyntax.lastIndexOf(","));
 
         // Append sign and version columns
-        createTableSyntax.append("`").append(SIGN_COLUMN).append("` ").append(SIGN_COLUMN_DATA_TYPE).append(" ").append(NULL).append(",");
+        createTableSyntax.append("`").append(SIGN_COLUMN).append("` ").append(SIGN_COLUMN_DATA_TYPE).append(" ").append(",");
         createTableSyntax.append("`").append(VERSION_COLUMN).append("` ").append(VERSION_COLUMN_DATA_TYPE);
 
         createTableSyntax.append(")");
         createTableSyntax.append(" ");
-        createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(")");
+        createTableSyntax.append("ENGINE = ReplicatedVersionedCollapsingMergeTree(").append("'/clickhouse/{cluster}/tables/{shard}/{database}/{table}', ").append("'{replica}', ").append(SIGN_COLUMN).append(", ").append(VERSION_COLUMN).append(")");
         createTableSyntax.append(" ");
 
         if(primaryKey != null) {
@@ -98,6 +97,11 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
             // ToDO:
             createTableSyntax.append(ORDER_BY_TUPLE);
         }
+        if (partitionBy != ""){
+            createTableSyntax.append(" PARTITION BY ").append(partitionBy);
+        }
+
+        createTableSyntax.append(" SETTINGS index_granularity=8192, allow_nullable_key=1");
        return createTableSyntax.toString();
     }
 }

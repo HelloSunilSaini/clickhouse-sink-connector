@@ -66,7 +66,7 @@ public class DBMetadataTest {
         String tableName = "employees";
 
         DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password, false,
-                new ClickHouseSinkConnectorConfig(new HashMap<>()), null);
+                new ClickHouseSinkConnectorConfig(new HashMap<>()), null, "");
 
         // Default database exists.
         boolean result = new DBMetadata().checkIfDatabaseExists(writer.getConnection().get(0), "default");
@@ -81,17 +81,17 @@ public class DBMetadataTest {
     public void testGetEngineFromResponse() {
 
         String replacingMergeTree = "ReplacingMergeTree(ver) PRIMARY KEY dept_no ORDER BY dept_no SETTINGS index_granularity = 8192";
-        MutablePair<DBMetadata.TABLE_ENGINE, String> replacingMergeTreeResult = new DBMetadata().getEngineFromResponse(replacingMergeTree);
+        MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> replacingMergeTreeResult = new DBMetadata().getEngineFromResponse(replacingMergeTree);
 
-        Assert.assertTrue(replacingMergeTreeResult.getRight().equalsIgnoreCase("ver"));
+        Assert.assertTrue(replacingMergeTreeResult.getRight().getRight().equalsIgnoreCase("ver"));
         Assert.assertTrue(replacingMergeTreeResult.getLeft().getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine()));
 
 
         String replicatedReplacingMergeTree = "ReplicatedReplacingMergeTree('/clickhouse/{cluster}/tables/dashboard_mysql_replication/favourite_products', '{replica}', ver) ORDER BY id SETTINGS allow_nullable_key = 1, index_granularity = 8192";
 
-        MutablePair<DBMetadata.TABLE_ENGINE, String> replicatedReplacingMergeTreeResult = new DBMetadata().getEngineFromResponse(replicatedReplacingMergeTree);
+        MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> replicatedReplacingMergeTreeResult = new DBMetadata().getEngineFromResponse(replicatedReplacingMergeTree);
 
-        Assert.assertTrue(replicatedReplacingMergeTreeResult.getRight().equalsIgnoreCase("ver"));
+        Assert.assertTrue(replicatedReplacingMergeTreeResult.getRight().getRight().equalsIgnoreCase("ver"));
         Assert.assertTrue(replicatedReplacingMergeTreeResult.getLeft().getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine()));
 
 

@@ -20,6 +20,7 @@ public class ClickHouseSinkConnectorConfigVariables {
     public static final String CLICKHOUSE_ENABLE_SSL = "clickhouse.enable.ssl";
 
     public static final String CLICKHOUSE_TABLE = "clickhouse.table.name";
+    public static final String CLICKHOUSE_TABLES_TO_PARTITIONBY_MAP = "clickhouse.table2partitionby.map";
 
     public static final String PROVIDER_CONFIG = "provider";
     public static final String TASK_ID = "task_id";

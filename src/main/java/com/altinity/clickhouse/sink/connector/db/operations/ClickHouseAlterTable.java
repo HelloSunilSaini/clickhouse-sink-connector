@@ -34,7 +34,7 @@ public class ClickHouseAlterTable extends ClickHouseTableOperationsBase{
             } else {
                 alterTableSyntax.append(ClickHouseDbConstants.ALTER_TABLE_DELETE_COLUMN).append(" ");
             }
-            alterTableSyntax.append("`").append(entry.getKey()).append("`").append(" ").append(entry.getValue()).append(",");
+            alterTableSyntax.append("`").append(entry.getKey()).append("`").append(" Nullable(").append(entry.getValue()).append("),");
         }
         alterTableSyntax.deleteCharAt(alterTableSyntax.lastIndexOf(","));
 
