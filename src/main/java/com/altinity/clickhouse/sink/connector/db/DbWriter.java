@@ -84,7 +84,7 @@ public class DbWriter extends BaseDbWriter {
                     new ClickHouseCreateDatabase().createNewDatabase(this.connections.get(i), database);
                 }
             }
-            MutablePair<DBMetadata.TABLE_ENGINE, String> response = metadata.getTableEngine(this.connections, database, tableName);
+            MutablePair<DBMetadata.TABLE_ENGINE, MutablePair<String, String>> response = metadata.getTableEngine(this.connections, database, tableName);
             this.engine = response.getLeft();
 
             long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID);
@@ -107,10 +107,17 @@ public class DbWriter extends BaseDbWriter {
                 }
             }
 
-            if (this.engine != null && (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine()) || this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine()))) {
-                this.versionColumn = response.getRight();
-            } else if (this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
-                this.signColumn = response.getRight();
+            if (this.engine != null && 
+                (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine()) || 
+                this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine()) ||
+                this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine()))) {
+                this.versionColumn = response.getRight().getRight();
+            } 
+            if (this.engine != null && 
+                (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine()) ||
+                this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine()) ||
+                this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine()))) {
+                this.signColumn = response.getRight().getLeft();
             }
         } catch(Exception e) {
             log.error("***** DBWriter error initializing ****", e);
@@ -451,7 +458,10 @@ public class DbWriter extends BaseDbWriter {
                         } else if(CdcRecordState.CDC_RECORD_STATE_AFTER == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
                             insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
                         } else if(CdcRecordState.CDC_RECORD_STATE_BOTH == getCdcSectionBasedOnOperation(record.getCdcOperation()))  {
-                            if(this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
+                            if(this.engine != null && 
+                                (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine()) || 
+                                this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine()) ||
+                                this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine()))) {
                                 insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
                             }
                             insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
@@ -624,42 +634,44 @@ public class DbWriter extends BaseDbWriter {
 
         // Sign column.
         //String signColumn = this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_SIGN_COLUMN);
-        if(this.engine != null && (this.engine.getEngine() == DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine() ||this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine()) &&
-        this.signColumn != null)
-        if (this.columnNameToDataTypeMap.containsKey(signColumn) && columnNameToIndexMap.containsKey(signColumn)) {
-            int signColumnIndex = columnNameToIndexMap.get(signColumn);
-            if (record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.DELETE.getOperation())) {
-                ps.setInt(signColumnIndex, -1);
-            } else if (record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.UPDATE.getOperation())){
-                if(beforeSection == true) {
-                    ps.setInt(signColumnIndex, - 1);
+        if(this.engine != null && this.signColumn != null &&
+            (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine()) ||
+            this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine()) ||
+            this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine()) )){
+            if (this.columnNameToDataTypeMap.containsKey(signColumn) && columnNameToIndexMap.containsKey(signColumn)) {
+                int signColumnIndex = columnNameToIndexMap.get(signColumn);
+                if (record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.DELETE.getOperation())) {
+                    ps.setInt(signColumnIndex, -1);
+                } else if (record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.UPDATE.getOperation())){
+                    if(beforeSection == true) {
+                        ps.setInt(signColumnIndex, - 1);
+                    } else {
+                        ps.setInt(signColumnIndex, 1);
+                    }
                 } else {
                     ps.setInt(signColumnIndex, 1);
                 }
-            } else {
-                ps.setInt(signColumnIndex, 1);
             }
-
         }
 
         // Version column.
         //String versionColumn = this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_VERSION_COLUMN);
-        if(this.engine != null && (this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine() || this.engine.getEngine() == DBMetadata.TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine()) && this.versionColumn != null) {
+        if(this.engine != null && this.versionColumn != null &&
+            (this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine()) || 
+            this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine()) ||
+            this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine()))) {
             if (this.columnNameToDataTypeMap.containsKey(versionColumn)) {
-                long currentTimeInMs = System.currentTimeMillis();
-                //if (record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.UPDATE.getOperation()))
-                {
-                    //ps.setLong(columnNameToIndexMap.get(versionColumn), record.getTs_ms());
-                    if(columnNameToIndexMap.containsKey(versionColumn)) {
-                        if (record.getGtid() != -1) {
-                            if(this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.SNOWFLAKE_ID)) {
-                                ps.setLong(columnNameToIndexMap.get(versionColumn), SnowFlakeId.generate(record.getTs_ms(), record.getGtid()));
-                            } else {
-                                ps.setLong(columnNameToIndexMap.get(versionColumn), record.getGtid());
-                            }
+                if(columnNameToIndexMap.containsKey(versionColumn)) {
+                    if (record.getGtid() != -1) {
+                        if(this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.SNOWFLAKE_ID)) {
+                            ps.setLong(columnNameToIndexMap.get(versionColumn), SnowFlakeId.generate(record.getTs_ms(), record.getGtid()));
                         } else {
-                            ps.setLong(columnNameToIndexMap.get(versionColumn), record.getTs_ms());
+                            ps.setLong(columnNameToIndexMap.get(versionColumn), record.getGtid());
                         }
+                    } else if(record.getTs_ms() > 0){
+                        ps.setLong(columnNameToIndexMap.get(versionColumn), record.getTs_ms());
+                    }else {
+                        ps.setLong(columnNameToIndexMap.get(versionColumn), System.currentTimeMillis());
                     }
                 }
             }

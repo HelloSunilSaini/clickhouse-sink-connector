@@ -120,13 +120,13 @@ public class DbWriterTest {
 
         DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password, false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null, "");
-        MutablePair<DBMetadata.TABLE_ENGINE, String> result = new DBMetadata().getTableEngineUsingShowTable(writer.getConnection().get(0), "employees");
+                MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> result = new DBMetadata().getTableEngineUsingShowTable(writer.getConnection().get(0), "employees");
         Assert.assertTrue(result.getLeft() == DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE);
-        Assert.assertTrue(result.getRight().equalsIgnoreCase("_version"));
+        Assert.assertTrue(result.getRight().getRight().equalsIgnoreCase("_version"));
 
-        MutablePair<DBMetadata.TABLE_ENGINE, String> resultProducts = new DBMetadata().getTableEngineUsingShowTable(writer.getConnection().get(0), "products");
+        MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> resultProducts = new DBMetadata().getTableEngineUsingShowTable(writer.getConnection().get(0), "products");
         Assert.assertTrue(resultProducts.getLeft() == DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE);
-        Assert.assertTrue(resultProducts.getRight().equalsIgnoreCase("sign"));
+        Assert.assertTrue(resultProducts.getRight().getLeft().equalsIgnoreCase("sign"));
     }
 
     @Test
@@ -141,16 +141,16 @@ public class DbWriterTest {
 
         DbWriter writer = new DbWriter(dbHostName, port, database, tableName, userName, password, false,
                 new ClickHouseSinkConnectorConfig(new HashMap<>()), null, "");
-        MutablePair< DBMetadata.TABLE_ENGINE, String> result = new DBMetadata().getTableEngineUsingSystemTables(writer.getConnection().get(0),
+        MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> result = new DBMetadata().getTableEngineUsingSystemTables(writer.getConnection().get(0),
                 database, "employees");
         Assert.assertTrue(result.getLeft() == DBMetadata.TABLE_ENGINE.REPLACING_MERGE_TREE);
 
-        MutablePair<DBMetadata.TABLE_ENGINE, String> result_products = new DBMetadata().getTableEngineUsingSystemTables(writer.getConnection().get(0),
+        MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> result_products = new DBMetadata().getTableEngineUsingSystemTables(writer.getConnection().get(0),
                 database, "products");
         Assert.assertTrue(result_products.getLeft() == DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE);
 
         // Table does not exist.
-        MutablePair<DBMetadata.TABLE_ENGINE, String> result_registration = new DBMetadata().getTableEngineUsingSystemTables(writer.getConnection().get(0),
+        MutablePair< DBMetadata.TABLE_ENGINE, MutablePair<String,String>> result_registration = new DBMetadata().getTableEngineUsingSystemTables(writer.getConnection().get(0),
                 database, "registration");
         Assert.assertNull(result_registration.getLeft());
 

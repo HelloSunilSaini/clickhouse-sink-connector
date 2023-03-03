@@ -27,6 +27,8 @@ public class DBMetadata {
 
         REPLICATED_REPLACING_MERGE_TREE("ReplicatedReplacingMergeTree"),
 
+        REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE("ReplicatedVersionedCollapsingMergeTree"),
+
         MERGE_TREE("MergeTree"),
 
         DEFAULT("default");
@@ -48,9 +50,9 @@ public class DBMetadata {
      * @param tableName
      * @return
      */
-    public MutablePair<TABLE_ENGINE, String> getTableEngine(ArrayList<ClickHouseConnection> connections, String databaseName, String tableName) {
+    public MutablePair<TABLE_ENGINE, MutablePair<String, String>> getTableEngine(ArrayList<ClickHouseConnection> connections, String databaseName, String tableName) {
 
-        MutablePair<TABLE_ENGINE, String> result;
+        MutablePair<TABLE_ENGINE, MutablePair<String, String>> result;
         int i = 0;
         do{
             result = getTableEngineUsingSystemTables(connections.get(i), databaseName, tableName);
@@ -102,9 +104,9 @@ public class DBMetadata {
      * @param tableName
      * @return
      */
-    public MutablePair<TABLE_ENGINE, String> getTableEngineUsingShowTable(ClickHouseConnection conn, String tableName) {
-        MutablePair<TABLE_ENGINE, String> result = new MutablePair<>();
-
+    public MutablePair<TABLE_ENGINE, MutablePair<String, String>> getTableEngineUsingShowTable(ClickHouseConnection conn, String tableName) {
+        MutablePair<TABLE_ENGINE, MutablePair<String, String>> result = new MutablePair<>();
+        result.right = new MutablePair<>();
         try {
             if (conn == null) {
                 log.error("Error with DB connection");
@@ -115,15 +117,19 @@ public class DBMetadata {
                 ResultSet rs = stmt.executeQuery(showSchemaQuery);
                 if(rs.next()) {
                     String response =  rs.getString(1);
-                    if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
-                        result.left = TABLE_ENGINE.COLLAPSING_MERGE_TREE;
-                        result.right = getSignColumnForCollapsingMergeTree(response);
-                    } else if (response.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.engine)){
+                    if (response.contains(TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.engine)){
+                        result.left = TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE;
+                        result.right.right = getVersionColumnForReplacingMergeTree(response);
+                        result.right.left = getSignColumnForCollapsingMergeTree(response);
+                    }else if (response.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.engine)){
                         result.left = TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE;
-                        result.right = getSignColumnForCollapsingMergeTree(response);
+                        result.right.left = getSignColumnForCollapsingMergeTree(response);   
+                    }else if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
+                        result.left = TABLE_ENGINE.COLLAPSING_MERGE_TREE;
+                        result.right.left = getSignColumnForCollapsingMergeTree(response);
                     } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
-                        result.right = getVersionColumnForReplacingMergeTree(response);
+                        result.right.right = getVersionColumnForReplacingMergeTree(response);
                     } else if(response.contains(TABLE_ENGINE.MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.MERGE_TREE;
                     }else {
@@ -143,6 +149,7 @@ public class DBMetadata {
 
     public static final String COLLAPSING_MERGE_TREE_SIGN_PREFIX = "CollapsingMergeTree(";
     public static final String REPLICATED_COLLAPSING_MERGE_TREE_SIGN_PREFIX = "ReplicatedCollapsingMergeTree(";
+    public static final String REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE_SIGN_PREFIX = "ReplicatedVersionedCollapsingMergeTree(";
     public static final String REPLACING_MERGE_TREE_VER_PREFIX = "ReplacingMergeTree(";
 
     public static final String REPLICATED_REPLACING_MERGE_TREE_VER_PREFIX = "ReplicatedReplacingMergeTree(";
@@ -154,10 +161,15 @@ public class DBMetadata {
     public String getSignColumnForCollapsingMergeTree(String createDML) {
 
         String signColumn = "sign";
-
-        if(createDML.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
-            signColumn = StringUtils.substringBetween(createDML, COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
-        } else if (createDML.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine())){
+        if (createDML.contains(TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine())){
+            String parameters = StringUtils.substringBetween(createDML, REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
+            if(parameters != null) {
+                String[] parameterArray = parameters.split(",");
+                if(parameterArray != null && parameterArray.length >= 3) {
+                    signColumn = parameterArray[2].trim();
+                }
+            }
+        }else if (createDML.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.getEngine())){
             String parameters = StringUtils.substringBetween(createDML, REPLICATED_COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
             if(parameters != null) {
                 String[] parameterArray = parameters.split(",");
@@ -165,7 +177,9 @@ public class DBMetadata {
                     signColumn = parameterArray[2].trim();
                 }
             }
-        } else {
+        }else if(createDML.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
+            signColumn = StringUtils.substringBetween(createDML, COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
+        }  else {
             log.error("Error: Trying to retrieve sign from table that is not CollapsingMergeTree");
         }
 
@@ -180,8 +194,15 @@ public class DBMetadata {
     public String getVersionColumnForReplacingMergeTree(String createDML) {
 
         String versionColumn = "ver";
-
-        if(createDML.contains(TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine())) {
+        if (createDML.contains(TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.getEngine())){
+            String parameters = StringUtils.substringBetween(createDML, REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE_SIGN_PREFIX, ")");
+            if(parameters != null) {
+                String[] parameterArray = parameters.split(",");
+                if(parameterArray != null && parameterArray.length >= 4) {
+                    versionColumn = parameterArray[3].trim();
+                }
+            }
+        } else if(createDML.contains(TABLE_ENGINE.REPLICATED_REPLACING_MERGE_TREE.getEngine())) {
             String parameters = StringUtils.substringBetween(createDML, REPLICATED_REPLACING_MERGE_TREE_VER_PREFIX, ")");
             if(parameters != null) {
                 String[] parameterArray = parameters.split(",");
@@ -189,8 +210,7 @@ public class DBMetadata {
                     versionColumn = parameterArray[2].trim();
                 }
             }
-        }
-        else if(createDML.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine())) {
+        } else if(createDML.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.getEngine())) {
             versionColumn = StringUtils.substringBetween(createDML, REPLACING_MERGE_TREE_VER_PREFIX, ")").trim();
         } else {
             log.error("Error: Trying to retrieve ver from table that is not ReplacingMergeTree");
@@ -204,11 +224,9 @@ public class DBMetadata {
      * @param tableName Table Name.
      * @return TABLE_ENGINE type
      */
-    public MutablePair<TABLE_ENGINE, String> getTableEngineUsingSystemTables(final ClickHouseConnection conn, final String database,
-                                                        final String tableName) {
-        MutablePair<TABLE_ENGINE, String> result = new MutablePair<>();
-
-
+    public MutablePair<TABLE_ENGINE, MutablePair<String, String>> getTableEngineUsingSystemTables(final ClickHouseConnection conn, final String database, final String tableName) {
+        MutablePair<TABLE_ENGINE, MutablePair<String, String>> result = new MutablePair<>();
+        result.right = new MutablePair<>();
         try {
             if (conn == null) {
                 log.error("Error with DB connection");
@@ -233,18 +251,22 @@ public class DBMetadata {
         return result;
     }
 
-    public MutablePair<TABLE_ENGINE, String> getEngineFromResponse(String response) {
-        MutablePair<TABLE_ENGINE, String> result = new MutablePair<>();
-
-        if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
-            result.left = TABLE_ENGINE.COLLAPSING_MERGE_TREE;
-            result.right = getSignColumnForCollapsingMergeTree(response);
+    public MutablePair<TABLE_ENGINE, MutablePair<String, String>> getEngineFromResponse(String response) {
+        MutablePair<TABLE_ENGINE, MutablePair<String, String>>  result = new MutablePair<>();
+        result.right = new MutablePair<>();
+        if (response.contains(TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE.engine)){
+            result.left = TABLE_ENGINE.REPLICATED_VERSIONED_COLLAPSING_MERGE_TREE;
+            result.right.right = getVersionColumnForReplacingMergeTree(response);
+            result.right.left = getSignColumnForCollapsingMergeTree(response);
         } else if (response.contains(TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE.engine)){
             result.left = TABLE_ENGINE.REPLICATED_COLLAPSING_MERGE_TREE;
-            result.right = getSignColumnForCollapsingMergeTree(response);
+            result.right.left = getSignColumnForCollapsingMergeTree(response);
+        } else if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
+            result.left = TABLE_ENGINE.COLLAPSING_MERGE_TREE;
+            result.right.left = getSignColumnForCollapsingMergeTree(response);
         } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
-            result.right = getVersionColumnForReplacingMergeTree(response);
+            result.right.right = getVersionColumnForReplacingMergeTree(response);
         } else if(response.contains(TABLE_ENGINE.MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.MERGE_TREE;
         } else {
