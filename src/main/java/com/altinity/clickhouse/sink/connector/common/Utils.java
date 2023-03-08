@@ -80,6 +80,47 @@ public class Utils {
         return topic2Table;
     }
 
+    public static Map<String, String> parseTableToPartitionByMap(String input) throws Exception {
+        Map<String, String> tableTopartitionBy = new HashMap<>();
+        boolean isInvalid = false;
+        for (String str : input.split(",")) {
+            String[] tt = str.split(":");
+
+            if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
+                LOGGER.error(
+                        Logging.logMessage(
+                                "Invalid {} config format: {}",
+                                ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TOPICS_TABLES_MAP,
+                                input));
+                return null;
+            }
+
+            String table = tt[0].trim();
+            String partitionBy = tt[1].trim();
+
+            if (!isValidTable(table)) {
+                LOGGER.error(
+                        Logging.logMessage(
+                                "table name {} should have at least 2 "
+                                        + "characters, start with _a-zA-Z, and only contains "
+                                        + "_$a-zA-z0-9",
+                                table));
+                isInvalid = true;
+            }
+
+            if (tableTopartitionBy.containsKey(table)) {
+                LOGGER.error(Logging.logMessage("table name {} is duplicated", table));
+                isInvalid = true;
+            }
+
+            tableTopartitionBy.put(table, partitionBy);
+        }
+        if (isInvalid) {
+            throw new Exception("Invalid clickhouse table");
+        }
+        return tableTopartitionBy;
+    }
+
     /**
      * Function to get Table name from kafka connect topic
      * @param topicName

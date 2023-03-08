@@ -75,7 +75,7 @@ public class ClickHouseSinkTask extends SinkTask {
 
         try {
              this.topic2TableMap = Utils.parseTopicToTableMap(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TOPICS_TABLES_MAP));
-             this.table2PatitionByMap = Utils.parseTopicToTableMap(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLES_TO_PARTITIONBY_MAP));
+             this.table2PatitionByMap = Utils.parseTableToPartitionByMap(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLES_TO_PARTITIONBY_MAP));
         } catch (Exception e) {
             log.error("Error parsing topic to table map" + e);
         }
