@@ -71,7 +71,7 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
             } else if (dataType.contains("Array")){
                 createTableSyntax.append("");
             }else {
-                if (primaryKey.contains(colName)) {
+                if (primaryKey != null && primaryKey.contains(colName)) {
                     createTableSyntax.append(" ").append(NOT_NULL);
                 } else {
                     createTableSyntax.append(" ").append(NULL);
