@@ -36,10 +36,9 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
         Map<String, String> colNameToDataTypeMap = this.getColumnNameToCHDataTypeMapping(fields);
         String createTableQuery = this.createTableSyntax(primaryKey, tableName, fields, colNameToDataTypeMap);
         // ToDO: need to run it before a session is created.
+        log.info("**** AUTO CREATE TABLE " + createTableQuery);
         for (int i=0;i<connections.size();i++){
-            String createTableQueryFinal = createTableQuery.replace("{replica}", "" + i);
-            log.info("**** AUTO CREATE TABLE " + createTableQueryFinal);
-            this.runQuery(createTableQueryFinal, connections.get(i));
+            this.runQuery(createTableQuery, connections.get(i));
         }
     }
 
@@ -54,7 +53,7 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
 
         StringBuilder createTableSyntax = new StringBuilder();
 
-        createTableSyntax.append(CREATE_TABLE).append(" ").append(tableName).append("(");
+        createTableSyntax.append(CREATE_TABLE).append(" ").append(tableName).append(" on CLUSTER '{cluster}' (");
 
         for(Field f: fields) {
             String colName = f.name();
@@ -91,12 +90,12 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
         if (this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE).trim().equalsIgnoreCase(TABLE_ENGINE.REPLICATED_MERGE_TREE.getEngine())){
             createTableSyntax.deleteCharAt(createTableSyntax.length()-1);  
             createTableSyntax.append(") ");
-            createTableSyntax.append("ENGINE = ReplicatedMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', '{replica}') ");
+            createTableSyntax.append("ENGINE = ReplicatedMergeTree(").append("'/clickhouse/{cluster}/tables/{shard}/{database}/{table}', '{replica}') ");
         } else {
             createTableSyntax.append("`").append(SIGN_COLUMN).append("` ").append(SIGN_COLUMN_DATA_TYPE).append(" ").append(NULL).append(",");
             createTableSyntax.append("`").append(VERSION_COLUMN).append("` ").append(VERSION_COLUMN_DATA_TYPE);
             createTableSyntax.append(") ");
-            createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/tables/0/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(") ");
+            createTableSyntax.append("ENGINE = ReplicatedReplacingMergeTree(").append("'/clickhouse/{cluster}/tables/{shard}/{database}/{table}', ").append("'{replica}', ").append(VERSION_COLUMN).append(") ");
         }
         if(primaryKey != null && !(this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_TABLE_ENGINE).trim().equalsIgnoreCase(TABLE_ENGINE.REPLICATED_MERGE_TREE.getEngine()))) {
             createTableSyntax.append(PRIMARY_KEY).append("(");
