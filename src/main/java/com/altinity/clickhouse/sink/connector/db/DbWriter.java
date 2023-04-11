@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Class that abstracts all functionality
@@ -420,71 +421,84 @@ public class DbWriter extends BaseDbWriter {
 
             ArrayList<ClickHouseStruct> truncatedRecords = new ArrayList<>();
 
-            for (int i=0; i<this.connections.size(); i++){
-                try (PreparedStatement ps = this.connections.get(i).prepareStatement(insertQuery)) {
-
-                    List<ClickHouseStruct> recordsList = entry.getValue();
-                    for (ClickHouseStruct record : recordsList) {
-                        try {
-                            bmd.update(record);
-                        } catch(Exception e) {
-                            log.error("**** ERROR: updating Prometheus", e);
-                        }
-
-                        if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
-                            truncatedRecords.add(record);
-                            continue;
-                        }
-                        //List<Field> fields = record.getStruct().schema().fields();
-
-    //                    if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
-    //                        ps.addBatch(String.format("TRUNCATE TABLE %s", this.tableName));
-    //                        continue;
-    //                    }
-                        //ToDO:
-                        //insertPreparedStatement(ps, fields, record);
-
-
-                        if(CdcRecordState.CDC_RECORD_STATE_BEFORE == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
-                            insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
-                        } else if(CdcRecordState.CDC_RECORD_STATE_AFTER == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
-                            insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
-                        } else if(CdcRecordState.CDC_RECORD_STATE_BOTH == getCdcSectionBasedOnOperation(record.getCdcOperation()))  {
-                            if(this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
-                                insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
-                            }
-                            insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
-                        } else {
-                            log.error("INVALID CDC RECORD STATE");
-                        }
-
-
-                        // Append parameters to the query
-
-
-                        ps.addBatch();
-                        //records.remove(record);
+            for (int retries = 0;retries<4; retries++){
+                if (retries > 0) {
+                    try{
+                        TimeUnit.SECONDS.sleep(5);
+                    } catch(Exception e){
+                        log.error("******* ERROR Sleeping for retry ");
                     }
+                }
+                for (int i=0; i<this.connections.size(); i++){
+                    try (PreparedStatement ps = this.connections.get(i).prepareStatement(insertQuery)) {
+
+                        List<ClickHouseStruct> recordsList = entry.getValue();
+                        for (ClickHouseStruct record : recordsList) {
+                            try {
+                                bmd.update(record);
+                            } catch(Exception e) {
+                                log.error("**** ERROR: updating Prometheus", e);
+                            }
+
+                            if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
+                                truncatedRecords.add(record);
+                                continue;
+                            }
+                            //List<Field> fields = record.getStruct().schema().fields();
+
+        //                    if(record.getCdcOperation().getOperation().equalsIgnoreCase(ClickHouseConverter.CDC_OPERATION.TRUNCATE.getOperation())) {
+        //                        ps.addBatch(String.format("TRUNCATE TABLE %s", this.tableName));
+        //                        continue;
+        //                    }
+                            //ToDO:
+                            //insertPreparedStatement(ps, fields, record);
 
 
-                    // Issue the composed query: insert into mytable values(...)(...)...(...)
-                    // ToDo: The result of greater than or equal to zero means
-                    // the records were processed successfully.
-                    // but if any of the records were not processed successfully
-                    // How to we rollback or what action needs to be taken.
-                    int[] result = ps.executeBatch();
-                    success = true;
+                            if(CdcRecordState.CDC_RECORD_STATE_BEFORE == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
+                                insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
+                            } else if(CdcRecordState.CDC_RECORD_STATE_AFTER == getCdcSectionBasedOnOperation(record.getCdcOperation())) {
+                                insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
+                            } else if(CdcRecordState.CDC_RECORD_STATE_BOTH == getCdcSectionBasedOnOperation(record.getCdcOperation()))  {
+                                if(this.engine != null && this.engine.getEngine().equalsIgnoreCase(DBMetadata.TABLE_ENGINE.COLLAPSING_MERGE_TREE.getEngine())) {
+                                    insertPreparedStatement(entry.getKey().right, ps, record.getBeforeModifiedFields(), record, record.getBeforeStruct(), true);
+                                }
+                                insertPreparedStatement(entry.getKey().right, ps, record.getAfterModifiedFields(), record, record.getAfterStruct(), false);
+                            } else {
+                                log.error("INVALID CDC RECORD STATE");
+                            }
 
-                    long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID);
-                    log.info("*************** EXECUTED BATCH Successfully " + "Records: " + recordsList.size() + "************** task(" + taskId + ")"  + " Thread ID: " + Thread.currentThread().getName());
+
+                            // Append parameters to the query
+
+
+                            ps.addBatch();
+                            //records.remove(record);
+                        }
+
+
+                        // Issue the composed query: insert into mytable values(...)(...)...(...)
+                        // ToDo: The result of greater than or equal to zero means
+                        // the records were processed successfully.
+                        // but if any of the records were not processed successfully
+                        // How to we rollback or what action needs to be taken.
+                        int[] result = ps.executeBatch();
+                        success = true;
+
+                        long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID);
+                        log.info("*************** EXECUTED BATCH Successfully " + "Records: " + recordsList.size() + "************** task(" + taskId + ")"  + " Thread ID: " + Thread.currentThread().getName());
+
+                        break;
+                        // ToDo: Clear is not an atomic operation.
+                        //  It might delete the records that are inserted by the ingestion process.
+
+                    } catch (Exception e) {
+                        Metrics.updateErrorCounters(topicName, entry.getValue().size());
+                        log.error("******* ERROR inserting Batch for connection " + i + " ***************** ", e);
+                        success = false;
+                    }
+                }
+                if (success){
                     break;
-                    // ToDo: Clear is not an atomic operation.
-                    //  It might delete the records that are inserted by the ingestion process.
-
-                } catch (Exception e) {
-                    Metrics.updateErrorCounters(topicName, entry.getValue().size());
-                    log.error("******* ERROR inserting Batch for connection " + i + " ***************** ", e);
-                    success = false;
                 }
             }
 
