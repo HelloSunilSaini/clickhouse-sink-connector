@@ -406,7 +406,7 @@ public class DbWriter extends BaseDbWriter {
      *
      * @param queryToRecordsMap
      */
-    public BlockMetaData addToPreparedStatementBatch(String topicName, Map<MutablePair<String, Map<String, Integer>>,
+    public boolean addToPreparedStatementBatch(String topicName, Map<MutablePair<String, Map<String, Integer>>,
             List<ClickHouseStruct>> queryToRecordsMap, BlockMetaData bmd) throws SQLException {
 
         boolean success = false;
@@ -522,7 +522,7 @@ public class DbWriter extends BaseDbWriter {
             }
         }
 
-        return bmd;
+        return success;
     }
 
 

@@ -233,9 +233,23 @@ public class ClickHouseSinkTask extends SinkTask {
         Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
         try {
             this.flush(currentOffsets);
+            Iterator iterator = this.records_map_queue.iterator();
+            Map<String,Boolean> notProccessedTopics = new HashMap<>();
+            while (iterator.hasNext()) {
+                ConcurrentHashMap<String, ConcurrentLinkedQueue<ClickHouseStruct>> records_map = (ConcurrentHashMap<String, ConcurrentLinkedQueue<ClickHouseStruct>>) iterator.next();
+                for(Map.Entry<String, ConcurrentLinkedQueue<ClickHouseStruct>> entry : records_map.entrySet()) {
+                    if (entry.getKey() == RECORDS_VAR_IN_EXECUTION){
+                        continue;
+                    }else{
+                        notProccessedTopics.put(entry.getKey(), false);
+                    }
+                }
+            }
             currentOffsets.forEach(
                     (topicPartition, offsetAndMetadata) -> {
-                        committedOffsets.put(topicPartition, new OffsetAndMetadata(offsetAndMetadata.offset()));
+                        if (!notProccessedTopics.containsKey(topicPartition.topic())){
+                            committedOffsets.put(topicPartition, new OffsetAndMetadata(offsetAndMetadata.offset()));
+                        }
                     });
         } catch (Exception e) {
             log.error("preCommit({}):{}", this.id, e.getMessage());

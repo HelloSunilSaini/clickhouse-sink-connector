@@ -14,6 +14,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
@@ -101,7 +102,7 @@ public class ClickHouseBatchRunnable implements Runnable {
                 log.debug(String.format("No records to process ThreadId(%s), TaskId(%s)", Thread.currentThread().getName(), taskId));
                 return;
             }
-
+            List<String> processedTopicList = new ArrayList();
             // Topic Name -> List of records
             for (Map.Entry<String, ConcurrentLinkedQueue<ClickHouseStruct>> entry : this.records.entrySet()) {
                 // indicator to check that records are in execution
@@ -109,10 +110,12 @@ public class ClickHouseBatchRunnable implements Runnable {
                     continue;
                 }
                 if (entry.getValue().size() > 0) {
-                    processRecordsByTopic(entry.getKey(), entry.getValue());
+                    if (processRecordsByTopic(entry.getKey(), entry.getValue())){
+                        processedTopicList.add(entry.getKey());
+                    }
                 }
             }
-            
+            processedTopicList.forEach((topic) -> this.records.remove(topic));
             this.records.put(RECORDS_VAR_IN_EXECUTION, new ConcurrentLinkedQueue<>());
         } catch(Exception e) {
             log.error(String.format("ClickHouseBatchRunnable exception - Task(%s)", taskId), e);
@@ -170,7 +173,7 @@ public class ClickHouseBatchRunnable implements Runnable {
      * @param topicName
      * @param records
      */
-    private void processRecordsByTopic(String topicName, ConcurrentLinkedQueue<ClickHouseStruct> records) throws SQLException {
+    private boolean processRecordsByTopic(String topicName, ConcurrentLinkedQueue<ClickHouseStruct> records) throws SQLException {
 
         //The user parameter will override the topic mapping to table.
         String tableName = getTableFromTopic(topicName);
@@ -178,7 +181,7 @@ public class ClickHouseBatchRunnable implements Runnable {
 
         if(writer == null || writer.wasTableMetaDataRetrieved() == false) {
             log.error("*** TABLE METADATA not retrieved, retry next time");
-            return;
+            return false;
         }
         // Step 1: The Batch Insert with preparedStatement in JDBC
         // works by forming the Query and then adding records to the Batch.
@@ -198,10 +201,8 @@ public class ClickHouseBatchRunnable implements Runnable {
 
         BlockMetaData bmd = new BlockMetaData();
 
-        if(flushRecordsToClickHouse(topicName, writer, queryToRecordsMap, bmd)) {
-            // Remove the entry.
-            queryToRecordsMap.remove(topicName);
-        }
+        boolean result = false; 
+        result = flushRecordsToClickHouse(topicName, writer, queryToRecordsMap, bmd);
 
         if (this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.ENABLE_KAFKA_OFFSET)) {
             log.info("***** KAFKA OFFSET MANAGEMENT ENABLED *****");
@@ -218,7 +219,7 @@ public class ClickHouseBatchRunnable implements Runnable {
 //                Metrics.updateSinkRecordsCounter(blockUuid.toString(), taskId, topicName, tableName,
 //                        bmd.getPartitionToOffsetMap(), numRecords, bmd.getMinSourceLag(),
 //                        bmd.getMaxSourceLag(), bmd.getMinConsumerLag(), bmd.getMaxConsumerLag());
-
+        return result;
     }
 
     /**
@@ -237,14 +238,14 @@ public class ClickHouseBatchRunnable implements Runnable {
         long diffInMs = currentTime - lastFlushTimeInMs;
         long bufferFlushTimeout = this.config.getLong(ClickHouseSinkConnectorConfigVariables.BUFFER_FLUSH_TIMEOUT);
 
-        writer.addToPreparedStatementBatch(topicName, queryToRecordsMap, bmd);
+        result = writer.addToPreparedStatementBatch(topicName, queryToRecordsMap, bmd);
 
         try {
             Metrics.updateMetrics(bmd);
         } catch(Exception e) {
             log.error("****** Error updating Metrics ******");
         }
-        result = true;
+        // result = true;
 //
 //        // Step 2: Check if the buffer can be flushed
 //        // One if the max buffer size is reached
