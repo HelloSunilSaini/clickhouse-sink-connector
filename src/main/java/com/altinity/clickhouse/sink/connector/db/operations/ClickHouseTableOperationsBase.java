@@ -68,7 +68,12 @@ public class ClickHouseTableOperationsBase {
                     } else {
                         columnToDataTypesMap.put(colName, dataType.name());
                     }
-                } else {
+                } else if (dataType == ClickHouseDataType.Array){
+                        Schema.Type valueSchemaType = f.schema().valueSchema().type();
+                        String valueSchemaName = f.schema().valueSchema().name();
+                        ClickHouseDataType valueSchemaDataType = mapper.getClickHouseDataType(valueSchemaType, valueSchemaName);
+                        columnToDataTypesMap.put(colName, "Array("+ valueSchemaDataType.name()+")");  
+                }else {
                     columnToDataTypesMap.put(colName, dataType.name());
                 }
             }else {

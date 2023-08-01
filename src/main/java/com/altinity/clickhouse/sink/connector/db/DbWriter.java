@@ -405,7 +405,7 @@ public class DbWriter extends BaseDbWriter {
      *
      * @param queryToRecordsMap
      */
-    public BlockMetaData addToPreparedStatementBatch(String topicName, Map<MutablePair<String, Map<String, Integer>>,
+    public boolean addToPreparedStatementBatch(String topicName, Map<MutablePair<String, Map<String, Integer>>,
             List<ClickHouseStruct>> queryToRecordsMap, BlockMetaData bmd) throws SQLException {
 
         boolean success = false;
@@ -508,7 +508,7 @@ public class DbWriter extends BaseDbWriter {
             }
         }
 
-        return bmd;
+        return success;
     }
 
 
@@ -600,9 +600,10 @@ public class DbWriter extends BaseDbWriter {
             Field f = getFieldByColumnName(fields, colName);
             Schema.Type type = f.schema().type();
             String schemaName = f.schema().name();
+            Schema schema = f.schema();
             Object value = struct.get(f);
 
-            if(false == ClickHouseDataTypeMapper.convert(type, schemaName, value, index, ps)) {
+            if(false == ClickHouseDataTypeMapper.convert(type, schemaName,schema, value, index, ps)) {
                 log.error(String.format("**** DATA TYPE NOT HANDLED type(%s), name(%s), column name(%s)", type.toString(),
                         schemaName, colName));
             }
