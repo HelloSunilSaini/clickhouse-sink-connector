@@ -167,7 +167,14 @@ public class DebeziumConverter {
                     "yyyy-MM-dd'T'HH:mm:ss.SSSS'Z'",
                     "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
                     "yyyy-MM-dd'T'HH:mm:ss.SS'Z'",
-                    "yyyy-MM-dd'T'HH:mm:ss.S'Z'"
+                    "yyyy-MM-dd'T'HH:mm:ss.S'Z'",
+
+                    "yyyy-MM-dd HH:mm:ss.SSSSSS",
+                    "yyyy-MM-dd HH:mm:ss.SSSSS",
+                    "yyyy-MM-dd HH:mm:ss.SSSS",
+                    "yyyy-MM-dd HH:mm:ss.SSS",
+                    "yyyy-MM-dd HH:mm:ss.SS",
+                    "yyyy-MM-dd HH:mm:ss.S",
             };
 
             boolean parsingSuccesful = false;
